@@ -28,13 +28,12 @@ elif collection:
 
 
 //https://geographiclib.sourceforge.io/Python/doc/code.html#geographiclib.geodesic.Geodesic.Direct
-def make_arcs(srcPnt,distance,ranges,precision=1):
+def make_arcs(srcPnt,distance,start,end,precision=1):
 	ranges=ranges
-	arcs=[]
-	for range in ranges:
-		arc=[]
-		for az in range(range.start,range.end+precision,precision):
-			destPnt=geosgraphlib.Direct(srcPnt.lat,srcPnt.long,az,dist)
-			arc.append(destPnt)
-		arcs.append(arc)
-	return(arcs)
+
+	arc=[]
+	for az in range(start,end+precision,precision):
+		destPnt=geosgraphlib.Direct(srcPnt.lat,srcPnt.long,az,dist)
+		arc.append(QgsPoint(destPnt.lat2,destPnt.long2))
+
+	return(arc)
