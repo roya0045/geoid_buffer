@@ -1,0 +1,37 @@
+https://sourceforge.net/p/saga-gis/code/ci/master/tree/saga-gis/src/tools/shapes/shapes_tools/shapes_buffer.cpp
+
+if vector length = 1: // point
+	make points at given interval/precision
+elif line:
+	previousAz = None
+	previousVertex = None
+	for vertex in vertices:
+		currentAz = az(vertex,previousVertex)
+		QVector blockedRanges=[] //list of ranges
+		if previousAzimuth:
+			intAngle = currentAz - previousAz
+			
+
+
+
+		previousAz=360-currentAz
+		previousVertex=vertex
+	if endCap == flat: // make point at 90 degree of azim, if previous azime, make points between both
+
+	else:
+elif polygon:
+	check outside and inside range? process as line and merge with polygon, if buffer is negative?
+elif collection:
+	for geometry in  geometries:
+		buffer( geometry)
+
+def make_arcs(srcPnt,distance,ranges,precision=1):
+	ranges=ranges
+	arcs=[]
+	for range in ranges:
+		arc=[]
+		for az in range(range.start,range.end+precision,precision):
+			destPnt=geosgraphlib.Direct(srcPnt.lat,srcPnt.long,az,dist)
+			arc.append(destPnt)
+		arcs.append(arc)
+	return(arcs)
