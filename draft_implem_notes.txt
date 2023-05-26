@@ -5,48 +5,45 @@ try:
 Except:
 	polyt=QgsWkbTypes.Polygon
 
-def buffer (geometry,distancem,srcCrs,destCrs):
+def buffer (geometry,distancem,srcCrs,destCrs,dissolve=True,flatcap=False):
 	fwdtrsctx = QgsCoordinateTransform(srcCrs,destCrs )
 	revtrsctx = QgsCoordinateTransform(destCrs,srcCrs )
 	result=geometry.transform(fwdtrsctx)
 	if not(result):
 		raise QgsException("Failed to transform")
-	buffered=_buffer(geometry.asGeometryCollection(),distancem)
+	buffered=_buffer(geometry.asGeometryCollection(),distancem,flatcap)
+	
+	//union if dissolve
+	if ( dissolve):
+		buffered= QgsGeometry.unaryUnion(buffered)
 	result= buffered.transform(revtrsctx)
 	if not(result):
 		raise QgsExcepiton("could not transform back resulting geometry")
 	return(buffered)
 
-def _buffer (geometry,distancem):
+def _buffer (geometry,distancem,flat):
 	if len(geometry>1):
 		buffered_coll=[]
 		for geom in  geometry:
-			buffered=_buffer( geom)
+			buffered=_buffer( geom,distancem,flat)
 			buffered_coll.append(buffered)
 		return(buffered_coll)
 	geometry=geometry[0] //QgsGeometry
 	if geometry.isMultipart():
 		buffered_coll=[]
-		for geom in  geometry.parts():
-			buffered=_buffer( geom)
+		for part in  geometry.parts():
+			buffered=_buffer( part,distancem,flat)
 			buffered_coll.append(buffered)
 		return(buffered_coll)
 	previousVertex=None
 	previousAz = None
 	buffered=list()
-	for vertex in geometry.vertices():
+	for ix,vertex in enumerate(geometry.vertices()):
 
 		if (previousVertex is None):
 			continue
-		
+		newbuff=buff_line(peviousVertex,vertex,distancem,flatstart = flat and ix ==1,flatend=flat)
 		buffered.append(newbuff)
-		buffered = union( buffered, newbuff)
-		currentAz = az(vertex,previousVertex)
-		if previousAzimuth:
-			intAngle = currentAz - previousAz
-		
-
-		previousAz=360-currentAz
 		previousVertex=vertex
 
 	if (geometry.wkbType() == polyt):
@@ -58,16 +55,12 @@ def _buffer (geometry,distancem):
 		if distance < 0.0:
 			buffered=geometry.difference(buffered)
 		else:
-			buffered=unaryUnion([buffered,geometry])
+			buffered= QgsGeometry.unaryUnion([buffered,geometry])
 	elif previousVertex is None: // point
 		buffered=make_arcs(srcPnt,distance)
 		make points at given interval/precision
 	else:
-		buffered = unaryUnion(buffered)
-
-	//union if dissolve
-	if ( dissolve):
-		union(buffered)
+		buffered =  QgsGeometry.unaryUnion(buffered)
 
 	return(buffered) //need to reproject
 
