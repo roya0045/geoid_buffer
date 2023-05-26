@@ -1,4 +1,4 @@
-https://sourceforge.net/p/saga-gis/code/ci/master/tree/saga-gis/src/tools/shapes/shapes_tools/shapes_buffer.cpp
+//https://sourceforge.net/p/saga-gis/code/ci/master/tree/saga-gis/src/tools/shapes/shapes_tools/shapes_buffer.cpp
 
 if vector length = 1: // point
 	make points at given interval/precision
@@ -18,13 +18,16 @@ elif line:
 		previousVertex=vertex
 	if endCap == flat: // make point at 90 degree of azim, if previous azime, make points between both
 
-	else:
+	else: //arc cap
 elif polygon:
 	check outside and inside range? process as line and merge with polygon, if buffer is negative?
 elif collection:
 	for geometry in  geometries:
 		buffer( geometry)
+	return(geometry) //need to reproject
 
+
+//https://geographiclib.sourceforge.io/Python/doc/code.html#geographiclib.geodesic.Geodesic.Direct
 def make_arcs(srcPnt,distance,ranges,precision=1):
 	ranges=ranges
 	arcs=[]
