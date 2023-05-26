@@ -1,18 +1,37 @@
 //https://sourceforge.net/p/saga-gis/code/ci/master/tree/saga-gis/src/tools/shapes/shapes_tools/shapes_buffer.cpp
-def buffer (geometry,distancem):
+def buffer (geometry,distancem,srcCrs,destCrs):
+	fwdtrsctx = QgsCoordinateTransform(srcCrs,destCrs )
+	revtrsctx = QgsCoordinateTransform(destCrs,srcCrs )
+	result=geometry.transform(fwdtrsctx)
+	if not(result):
+		raise QgsException("Failed to transform")
+	buffered=_buffer(geometry,distancem)
+	result= buffered.transform(revtrsctx)
+	if not(result):
+		raise QgsExcepiton("could not transform back resulting geometry")
+	return(buffered)
+
+def _buffer (geometry,distancem):
 	if collection:
+		buffered_coll=[]
 		for geometry in  geometries:
-			buffered=buffer( geometry)
-		return(buffered)
+			buffered=_buffer( geometry)
+			buffered_coll.append(buffered)
+		return(buffered_coll)
 	if vector length = 1: // point
 		buffered=make_arcs(srcPnt,distance)
 		make points at given interval/precision
 	else:
+
 		previousAz = None
 		previousVertex = None
 		for vertex in vertices:
+			if (!previousVertex):
+				continue
+			
+			buffered = newbuff
+			buffered = union( buffered, newbuff)
 			currentAz = az(vertex,previousVertex)
-			QVector blockedRanges=[] //list of ranges
 			if previousAzimuth:
 				intAngle = currentAz - previousAz
 			
@@ -21,10 +40,10 @@ def buffer (geometry,distancem):
 
 			previousAz=360-currentAz
 			previousVertex=vertex
-		if endCap == flat: // make point at 90 degree of azim, if previous azime, make points between both
 
-		else: //arc cap
-		if polygon:
+		if (geometry.isPolygon):
+			if ( previousVertex != geoemtry.vertex[0] )):
+				buffered = union(buffered,buffLine(previousVertex, geometry.vertex[0]))
 			//check outside and inside range? process as line and merge with polygon, if buffer is negative?
 			// buffer as line
 			if distance < 0.0:
@@ -40,10 +59,19 @@ def buffer (geometry,distancem):
 
 	return(buffered) //need to reproject
 
+def buff_line(p1,p2,distance,capstyle,flatstart=False,flatend=False):
+	az=InverseLine(lat1, lon1, lat2, lon2,caps=512).azi1
+	lim=abs(az)+90
+	if flatend:
+		precision = 180
+	startarc= make_arc(p1,distance,lim,lim+180,180 if flatstart else precision)
+	endarc= make_arc(p2,distance,lim,lim-180,180 if flatend else precision)
+	//join arcs
+	return(polygon(startarc+endarc+startarc[0] ))
+	
 
 //https://geographiclib.sourceforge.io/Python/doc/code.html#geographiclib.geodesic.Geodesic.Direct
-def make_arcs(srcPnt,distance,start=0,end=360,precision=1):
-	ranges=ranges
+def make_arc(srcPnt,distance,start=0,end=360,precision=1):
 
 	arc=[]
 	for az in range(start,end+precision,precision):
