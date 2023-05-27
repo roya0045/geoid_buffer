@@ -27,7 +27,7 @@ __date__ = '2023-05-26'
 __copyright__ = '(C) 2023 by Alex RL'
 
 import sys, os
-sys.path.insert(0, str(os.path.join(os.path.dirname(os.path.realpath(__file__)), ''))+'\lib_dir')
+sys.path.insert(0, str(os.path.join(os.path.dirname(os.path.realpath(__file__)), ''))+'\ext_lib')
 
 # noinspection PyPep8Naming
 def classFactory(iface):  # pylint: disable=invalid-name

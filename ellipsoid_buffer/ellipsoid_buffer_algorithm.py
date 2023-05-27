@@ -31,11 +31,101 @@ __copyright__ = '(C) 2023 by Alex RL'
 __revision__ = '$Format:%H$'
 
 from qgis.PyQt.QtCore import QCoreApplication
-from qgis.core import (QgsProcessing,
-                       QgsFeatureSink,
+from qgis.core import (QgsProcessing,QgsCoordinateTransform,QgsCoordinate,QgsCoordinateReferenceSystems,QgsGeometry,QgsGeometryCollection,
+                       QgsFeatureSink,QgsProcessingParameterDistance,QgsProcessingParameterEnum,QgsProcessingParameterBoolean,
+                       QgsProcessingException,QgsProcessingParameterCrs,
                        QgsProcessingAlgorithm,
                        QgsProcessingParameterFeatureSource,
                        QgsProcessingParameterFeatureSink)
+from qgis import processing
+import geosgraphlib as gl #if fail run install script?
+
+
+#//https://sourceforge.net/p/saga-gis/code/ci/master/tree/saga-gis/src/tools/shapes/shapes_tools/shapes_buffer.cpp
+
+try:
+	polyt= Qgis.WkbType.PolygonGeomettry
+Except:
+	polyt=QgsWkbTypes.Polygon
+
+def buffer (geometry,distancem,srcCrs,destCrs,dissolve=True,flatcap=False):
+	fwdtrsctx = QgsCoordinateTransform(srcCrs,destCrs )
+	revtrsctx = QgsCoordinateTransform(destCrs,srcCrs )
+	result=geometry.transform(fwdtrsctx)
+	if not(result):
+		raise QgsException("Failed to transform")
+	buffered=_buffer(geometry.asGeometryCollection(),distancem,flatcap)
+	
+	if ( dissolve):
+		buffered= QgsGeometry.unaryUnion(buffered)
+	result= buffered.transform(revtrsctx)
+	if not(result):
+		raise QgsExcepiton("could not transform back resulting geometry")
+	return(buffered)
+
+def _buffer (geometry,distancem,flat):
+	if len(geometry>1):
+		buffered_coll=[]
+		for geom in  geometry:
+			buffered=_buffer( geom,distancem,flat)
+			buffered_coll.append(buffered)
+		return(buffered_coll)
+	geometry=geometry[0] //QgsGeometry
+	if geometry.isMultipart():
+		buffered_coll=[]
+		for part in  geometry.parts():
+			buffered=_buffer( part,distancem,flat)
+			buffered_coll.append(buffered)
+		return(buffered_coll)
+	previousVertex=None
+	previousAz = None
+	buffered=list()
+	for ix,vertex in enumerate(geometry.vertices()):
+
+		if (previousVertex is None):
+			continue
+		newbuff=buff_line(peviousVertex,vertex,distancem,flatstart = flat and ix ==1,flatend=flat)
+		buffered.append(newbuff)
+		previousVertex=vertex
+
+	if (geometry.wkbType() == polyt):
+		if ( previousVertex != geoemtry.vertexAt(0) )):
+			buffered.append(buffLine(previousVertex, geometry.vertexAt(0))
+		buffered = QgsGeometry.unaryUnion(buffered)
+		#//check outside and inside range? process as line and merge with polygon, if buffer is negative?
+		#// buffer as line
+		if distance < 0.0:
+			buffered=geometry.difference(buffered)
+		else:
+			buffered= QgsGeometry.unaryUnion([buffered,geometry])
+	elif previousVertex is None: // point
+		buffered=make_arcs(srcPnt,distance)
+		#make points at given interval/precision
+	else:
+		buffered =  QgsGeometry.unaryUnion(buffered)
+
+	return(buffered) //need to reproject
+
+def buff_line(p1,p2,distance,capstyle,flatstart=False,flatend=False):
+	az=gl.InverseLine(lat1, lon1, lat2, lon2,caps=512).azi1
+	lim=abs(az)+90
+	if flatend:
+		precision = 180
+	startarc= make_arc(p1,distance,lim,lim+180,180 if flatstart else precision)
+	endarc= make_arc(p2,distance,lim,lim-180,180 if flatend else precision)
+	#//join arcs
+	return(polygon(startarc+endarc+startarc[0] ))
+	
+
+ #//https://geographiclib.sourceforge.io/Python/doc/code.html#geographiclib.geodesic.Geodesic.Direct
+def make_arc(srcPnt,distance,start=0,end=360,precision=1):
+
+	arc=[]
+	for az in range(start,end+precision,precision):
+		destPnt=gl.Direct(srcPnt.lat,srcPnt.long,az,dist)
+		arc.append(QgsPoint(destPnt.lat2,destPnt.long2))
+
+	return(arc)
 
 
 class EllipsoidBufferAlgorithm(QgsProcessingAlgorithm):
@@ -57,7 +147,12 @@ class EllipsoidBufferAlgorithm(QgsProcessingAlgorithm):
     # calling from the QGIS console.
 
     OUTPUT = 'OUTPUT'
+    DISTM = 'DISTM'
+    ELLIPSOID = 'ELLIPSOID'
     INPUT = 'INPUT'
+    DISSB = 'DISSB'
+    ENDSTYLE = 'ENDSTYLE'
+    Capstyle = ['Round','Flat']
 
     def initAlgorithm(self, config):
         """
@@ -74,6 +169,17 @@ class EllipsoidBufferAlgorithm(QgsProcessingAlgorithm):
                 [QgsProcessing.TypeVectorAnyGeometry]
             )
         )
+
+        self.addParameter(QgsProcessingParameterDistance(self.DISTM,self.tr('Distance Meter'))
+        )
+
+        self.addParameter(QgsProcessingParameterEnum(self.ENDSTYLE,selt.tr('End style'),self.Capstyle,allowMultiple=False,
+                                                      defaultValue=0))
+
+        self.addParameter(QgsProcessingBoolean(self.DISSB,self.tr("Dissolve features"),False))
+
+        self.addParameter(QgsProcessingParameterCrs(self.ELLIPSOID,self.tr("Ellipsoid to use"),defaultValue= ?
+                        ,optional = True))
 
         # We add a feature sink in which to store our processed features (this
         # usually takes the form of a newly created vector layer when the
@@ -97,15 +203,34 @@ class EllipsoidBufferAlgorithm(QgsProcessingAlgorithm):
         (sink, dest_id) = self.parameterAsSink(parameters, self.OUTPUT,
                 context, source.fields(), source.wkbType(), source.sourceCrs())
 
+        distancem = self.parameterAsDouble(parameters, self.DISTM, context)
+        interimCrs = self.parameterAsCrs(parameters, self.ELLIPSOID, context)
+        capstyle = self.parameterAsEnum(parameters,self.ENDSTYLE,context)
+        if capstyle == 1 :
+            flatEnd =True
+        else:
+            flatEnd = False
+        dissolveB = self.parameterAsBoolean(parameter,self.DISSB,context)
         # Compute the number of steps to display within the progress bar and
         # get features from source
         total = 100.0 / source.featureCount() if source.featureCount() else 0
         features = source.getFeatures()
 
+        currentCrs =  source.sourceCrs()
+
+        if interimCrs:
+            Ellipsoid = interimCrs.ellipsoidAcronym()
+        else:
+            Ellipsoid = currentCrs.ellipsoidAcronym()
+
         for current, feature in enumerate(features):
             # Stop the algorithm if cancel button has been clicked
             if feedback.isCanceled():
                 break
+            oldgeometry=feature.geometry()
+            buffered= buffer(oldgeometry,distancem,currentCrs, Ellipsoid,dissolveB,flatEnd)
+
+            feature.setGeometry(buffered)
 
             # Add a feature in the sink
             sink.addFeature(feature, QgsFeatureSink.FastInsert)
