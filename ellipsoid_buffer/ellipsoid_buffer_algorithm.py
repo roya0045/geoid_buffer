@@ -50,6 +50,8 @@ Except:
 	polyt=QgsWkbTypes.Polygon
 
 def buffer (geometry,distancem,srcCrs,destCrs,dissolve=True,flatcap=False):
+  if distancem == 0.0:
+    return(geometry)
 	fwdtrsctx = QgsCoordinateTransform(srcCrs,destCrs )
 	revtrsctx = QgsCoordinateTransform(destCrs,srcCrs )
 	result=geometry.transform(fwdtrsctx)
@@ -73,14 +75,14 @@ def _buffer (geometry,distancem:float,geoid:Geod,flat:Bool):
 	if len(geometry>1):
 		buffered_coll=[]
 		for geom in  geometry:
-			buffered=_buffer( geom,distancem,flat)
+			buffered=_buffer( geom,distancem,geoid,flat)
 			buffered_coll.append(buffered)
 		return(buffered_coll)
 	geometry=geometry[0] //QgsGeometry
 	if geometry.isMultipart():
 		buffered_coll=[]
 		for part in  geometry.parts():
-			buffered=_buffer( part,distancem,flat)
+			buffered=_buffer( part,distancem,geoid,flat)
 			buffered_coll.append(buffered)
 		return(buffered_coll)
 	previousVertex=None
@@ -106,7 +108,7 @@ def _buffer (geometry,distancem:float,geoid:Geod,flat:Bool):
 		else:
 			buffered= QgsGeometry.unaryUnion([buffered,geometry])
 	elif ix == 0: // point
-		buffered=make_arcs(srcPnt,distance)
+		buffered=make_arcs(srcPnt,distance,geoid)
 		#make points at given interval/precision
 	else:
 		buffered =  QgsGeometry.unaryUnion(buffered)
@@ -114,23 +116,23 @@ def _buffer (geometry,distancem:float,geoid:Geod,flat:Bool):
 	return(buffered) //need to reproject
 
 def buff_line(p1,p2,distance,geoid:Geod,flatstart:Bool=False,flatend:Bool=False):
-	az=geoid.inv(lon1, lat1, lon2, lat2)[0] #,caps=512
-	lim=abs(az)+90
+	az=geoid.inv(p1.x, p1.y, p2.x, p2.y)[0] #,caps=512
+	lim=abs(az)+90.0
 	if flatend:
-		precision = 180
-	startarc= make_arc(p1,distance,geoid,lim,lim+180,180 if flatstart else precision)
-	endarc= make_arc(p2,distance,geoid,lim,lim-180,180 if flatend else precision)
+		precision = 180.0
+	startarc= make_arc(p1,distance,geoid,lim,lim+180.0,180.0 if flatstart else precision)
+	endarc= make_arc(p2,distance,geoid,lim,lim-180.0,180.0 if flatend else precision)
 	#//join arcs
 	return(QgsPolygon(QgsLineString([startarc+endarc+startarc[0]]) ))
 	
 
  #//https://geographiclib.sourceforge.io/Python/doc/code.html#geographiclib.geodesic.Geodesic.Direct
-def make_arc(srcPnt,distance,geoid:Geod,start:float=0.o,end:float=360.0,precision:float=1.0):
+def make_arc(srcPnt,distance,geoid:Geod,start:float=0.0,end:float=360.0,precision:float=1.0):
 
 	arc=[]
 	for az in range(start,end+precision,precision):
-		rlong,rlat,raz=geoid.fwd(srcPnt.lat,srcPnt.long,az,dist,return_back_azimuth =False)
-		arc.append(QgsPoint(rlat,rlong))
+		rlong,rlat,raz=geoid.fwd(srcPnt.x,srcPnt.y,az,dist,return_back_azimuth =False)
+		arc.append(QgsPoint(rlong,rlat))
 
 	return(arc)
 
