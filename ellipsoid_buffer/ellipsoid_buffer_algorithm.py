@@ -38,7 +38,7 @@ from qgis.core import (QgsProcessing,QgsCoordinateTransform,QgsCoordinate,QgsCoo
                        QgsProcessingParameterFeatureSource,
                        QgsProcessingParameterFeatureSink)
 from qgis import processing
-from pyproj.geod import Geod #https://pyproj4.github.io/pyproj/stable/api/geod.html#pyproj.Geod.fwd
+from pyproj import Proj,Geod #https://pyproj4.github.io/pyproj/stable/api/geod.html#pyproj.Geod.fwd
 from geographiclib.geodesic import Geodesic #if fail run install script?
 
 
@@ -53,16 +53,15 @@ def buffer (geometry,distancem,srcCrs,destCrs,dissolve=True,flatcap=False):
 	fwdtrsctx = QgsCoordinateTransform(srcCrs,destCrs )
 	revtrsctx = QgsCoordinateTransform(destCrs,srcCrs )
 	result=geometry.transform(fwdtrsctx)
-    if wgs84:
-        geodes = Geod()#Geodesic.WGS84
-    else: #https://proj.org/en/9.2/usage/ellipsoids.html
-        equatrad = 
-        flattening = 
-        geodes = Geod()#Geodesic(equatrad,flattening) #Geodesic(6378388, 1/297.0)
-	if not(result):
+  if not(result):
 		raise QgsException("Failed to transform")
+  crsvars=dict({tuple( i[1:].split('=')) for i in  destCrs.toProj().split(' ') if '=' in i})
+  if 'ellps' in crsvars:
+     geodes = Geod(crsvars['ellps'])#Geodesic.WGS84
+  else: #https://proj.org/en/9.2/usage/ellipsoids.html
+    geodes = Geod(a=crsvars.get('a',None),b=crsvars.get('b',None),f=crsvars.get('k',None))#Geodesic(equatrad,flattening) #Geodesic(6378388, 1/297.0)
+
 	buffered=_buffer(geometry.asGeometryCollection(),distancem,geodes,flatcap)
-	
 	if ( dissolve):
 		buffered= QgsGeometry.unaryUnion(buffered)
 	result= buffered.transform(revtrsctx)
