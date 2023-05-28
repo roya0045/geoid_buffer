@@ -87,16 +87,17 @@ def _buffer (geometry,distancem:float,geoid:Geod,flat:Bool):
 	previousAz = None
 	buffered=list()
 	for ix,vertex in enumerate(geometry.vertices()):
-
-		if (previousVertex is None):
+		if (ix==0):
+      previousVertex=vertex
 			continue
 		newbuff=buff_line(peviousVertex,vertex,distancem,geoid,flatstart = flat and ix ==1,flatend=flat)
 		buffered.append(newbuff)
 		previousVertex=vertex
 
+  v0 = geoemtry.vertexAt(0)
 	if (geometry.wkbType() == polyt):
-		if ( previousVertex != geoemtry.vertexAt(0) ):
-			buffered.append(buffLine(previousVertex, geometry.vertexAt(0),distancem,geoid))
+		if ( previousVertex != v0 ):
+			buffered.append(buffLine(previousVertex, v0,distancem,geoid))
 		buffered = QgsGeometry.unaryUnion(buffered)
 		#//check outside and inside range? process as line and merge with polygon, if buffer is negative?
 		#// buffer as line
@@ -104,7 +105,7 @@ def _buffer (geometry,distancem:float,geoid:Geod,flat:Bool):
 			buffered=geometry.difference(buffered)
 		else:
 			buffered= QgsGeometry.unaryUnion([buffered,geometry])
-	elif previousVertex is None: // point
+	elif ix == 0: // point
 		buffered=make_arcs(srcPnt,distance)
 		#make points at given interval/precision
 	else:
@@ -113,14 +114,14 @@ def _buffer (geometry,distancem:float,geoid:Geod,flat:Bool):
 	return(buffered) //need to reproject
 
 def buff_line(p1,p2,distance,geoid:Geod,flatstart:Bool=False,flatend:Bool=False):
-	az=geoid.inv(lat1, lon1, lat2, lon2,caps=512)[0]
+	az=geoid.inv(lon1, lat1, lon2, lat2)[0] #,caps=512
 	lim=abs(az)+90
 	if flatend:
 		precision = 180
 	startarc= make_arc(p1,distance,geoid,lim,lim+180,180 if flatstart else precision)
 	endarc= make_arc(p2,distance,geoid,lim,lim-180,180 if flatend else precision)
 	#//join arcs
-	return(polygon(startarc+endarc+startarc[0] ))
+	return(QgsPolygon(QgsLineString([startarc+endarc+startarc[0]]) ))
 	
 
  #//https://geographiclib.sourceforge.io/Python/doc/code.html#geographiclib.geodesic.Geodesic.Direct
@@ -128,8 +129,8 @@ def make_arc(srcPnt,distance,geoid:Geod,start:float=0.o,end:float=360.0,precisio
 
 	arc=[]
 	for az in range(start,end+precision,precision):
-		destPnt=geoid.fwd(srcPnt.lat,srcPnt.long,az,dist)
-		arc.append(QgsPoint(destPnt.lat2,destPnt.long2))
+		rlong,rlat,raz=geoid.fwd(srcPnt.lat,srcPnt.long,az,dist,return_back_azimuth =False)
+		arc.append(QgsPoint(rlat,rlong))
 
 	return(arc)
 
