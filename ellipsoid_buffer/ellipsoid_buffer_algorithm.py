@@ -38,7 +38,8 @@ from qgis.core import (QgsProcessing,QgsCoordinateTransform,QgsCoordinate,QgsCoo
                        QgsProcessingParameterFeatureSource,
                        QgsProcessingParameterFeatureSink)
 from qgis import processing
-import geosgraphlib as gl #if fail run install script?
+from pyproj.geod import Geod #https://pyproj4.github.io/pyproj/stable/api/geod.html#pyproj.Geod.fwd
+from geographiclib.geodesic import Geodesic #if fail run install script?
 
 
 #//https://sourceforge.net/p/saga-gis/code/ci/master/tree/saga-gis/src/tools/shapes/shapes_tools/shapes_buffer.cpp
@@ -52,9 +53,15 @@ def buffer (geometry,distancem,srcCrs,destCrs,dissolve=True,flatcap=False):
 	fwdtrsctx = QgsCoordinateTransform(srcCrs,destCrs )
 	revtrsctx = QgsCoordinateTransform(destCrs,srcCrs )
 	result=geometry.transform(fwdtrsctx)
+    if wgs84:
+        geodes = Geod()#Geodesic.WGS84
+    else: #https://proj.org/en/9.2/usage/ellipsoids.html
+        equatrad = 
+        flattening = 
+        geodes = Geod()#Geodesic(equatrad,flattening) #Geodesic(6378388, 1/297.0)
 	if not(result):
 		raise QgsException("Failed to transform")
-	buffered=_buffer(geometry.asGeometryCollection(),distancem,flatcap)
+	buffered=_buffer(geometry.asGeometryCollection(),distancem,geodes,flatcap)
 	
 	if ( dissolve):
 		buffered= QgsGeometry.unaryUnion(buffered)
@@ -63,7 +70,7 @@ def buffer (geometry,distancem,srcCrs,destCrs,dissolve=True,flatcap=False):
 		raise QgsExcepiton("could not transform back resulting geometry")
 	return(buffered)
 
-def _buffer (geometry,distancem,flat):
+def _buffer (geometry,distancem:float,geoid:Geod,flat:Bool):
 	if len(geometry>1):
 		buffered_coll=[]
 		for geom in  geometry:
@@ -84,13 +91,13 @@ def _buffer (geometry,distancem,flat):
 
 		if (previousVertex is None):
 			continue
-		newbuff=buff_line(peviousVertex,vertex,distancem,flatstart = flat and ix ==1,flatend=flat)
+		newbuff=buff_line(peviousVertex,vertex,distancem,geoid,flatstart = flat and ix ==1,flatend=flat)
 		buffered.append(newbuff)
 		previousVertex=vertex
 
 	if (geometry.wkbType() == polyt):
-		if ( previousVertex != geoemtry.vertexAt(0) )):
-			buffered.append(buffLine(previousVertex, geometry.vertexAt(0))
+		if ( previousVertex != geoemtry.vertexAt(0) ):
+			buffered.append(buffLine(previousVertex, geometry.vertexAt(0),distancem,geoid))
 		buffered = QgsGeometry.unaryUnion(buffered)
 		#//check outside and inside range? process as line and merge with polygon, if buffer is negative?
 		#// buffer as line
@@ -106,23 +113,23 @@ def _buffer (geometry,distancem,flat):
 
 	return(buffered) //need to reproject
 
-def buff_line(p1,p2,distance,capstyle,flatstart=False,flatend=False):
-	az=gl.InverseLine(lat1, lon1, lat2, lon2,caps=512).azi1
+def buff_line(p1,p2,distance,geoid:Geod,flatstart:Bool=False,flatend:Bool=False):
+	az=geoid.inv(lat1, lon1, lat2, lon2,caps=512)[0]
 	lim=abs(az)+90
 	if flatend:
 		precision = 180
-	startarc= make_arc(p1,distance,lim,lim+180,180 if flatstart else precision)
-	endarc= make_arc(p2,distance,lim,lim-180,180 if flatend else precision)
+	startarc= make_arc(p1,distance,geoid,lim,lim+180,180 if flatstart else precision)
+	endarc= make_arc(p2,distance,geoid,lim,lim-180,180 if flatend else precision)
 	#//join arcs
 	return(polygon(startarc+endarc+startarc[0] ))
 	
 
  #//https://geographiclib.sourceforge.io/Python/doc/code.html#geographiclib.geodesic.Geodesic.Direct
-def make_arc(srcPnt,distance,start=0,end=360,precision=1):
+def make_arc(srcPnt,distance,geoid:Geod,start:float=0.o,end:float=360.0,precision:float=1.0):
 
 	arc=[]
 	for az in range(start,end+precision,precision):
-		destPnt=gl.Direct(srcPnt.lat,srcPnt.long,az,dist)
+		destPnt=geoid.fwd(srcPnt.lat,srcPnt.long,az,dist)
 		arc.append(QgsPoint(destPnt.lat2,destPnt.long2))
 
 	return(arc)
