@@ -31,9 +31,9 @@ __copyright__ = '(C) 2023 by Alex RL'
 __revision__ = '$Format:%H$'
 
 from qgis.PyQt.QtCore import QCoreApplication
-from qgis.core import (QgsProcessing,QgsCoordinateTransform,QgsCoordinateReferenceSystem,QgsGeometry,QgsGeometryCollection,
+from qgis.core import (QgsProcessing,QgsCoordinateTransform,QgsCoordinateReferenceSystem,QgsGeometry,QgsGeometryCollection,QgsWkbTypes,
                        QgsFeatureSink,QgsProcessingParameterDistance,QgsProcessingParameterEnum,QgsProcessingParameterBoolean,
-                       QgsProcessingException,QgsProcessingParameterCrs,
+                       QgsProcessingException,QgsProcessingParameterCrs,QgsProject,QgsProcessingException,
                        QgsProcessingAlgorithm,
                        QgsProcessingParameterFeatureSource,
                        QgsProcessingParameterFeatureSink)
@@ -52,11 +52,14 @@ except:
 def buffer (geometry,distancem,srcCrs,destCrs,dissolve=True,flatcap=False):
     if distancem == 0.0:
         return(geometry)
-    fwdtrsctx = QgsCoordinateTransform(srcCrs,destCrs )
-    revtrsctx = QgsCoordinateTransform(destCrs,srcCrs )
+    geoid = QgsCoordinateReferenceSystem(destCrs.ellipsoidAcronym())
+    if not(geoid.isValid):
+        #missing in proj, solution?
+    fwdtrsctx = QgsCoordinateTransform(srcCrs,geoid, QgsProject.instance())
+    revtrsctx = QgsCoordinateTransform(geoid,srcCrs , QgsProject.instance())
     result=geometry.transform(fwdtrsctx)
     if not(result):
-        raise QgsException("Failed to transform")
+        raise QgsProcessingException("Failed to transform")
     crsvars=dict({tuple( i[1:].split('=')) for i in  destCrs.toProj().split(' ') if '=' in i})
     if 'ellps' in crsvars:
         geodes = Geod(crsvars['ellps'])#Geodesic.WGS84
@@ -68,10 +71,10 @@ def buffer (geometry,distancem,srcCrs,destCrs,dissolve=True,flatcap=False):
         buffered= QgsGeometry.unaryUnion(buffered)
     result= buffered.transform(revtrsctx)
     if not(result):
-        raise QgsExcepiton("could not transform back resulting geometry")
+        raise QgsProcessingException("could not transform back resulting geometry")
     return(buffered)
 
-def _buffer (geometry,distancem:float,geoid:Geod,flat:Bool):
+def _buffer (geometry,distancem:float,geoid:Geod,flat:bool):
     if len(geometry>1):
         buffered_coll=[]
         for geom in  geometry:
@@ -114,7 +117,7 @@ def _buffer (geometry,distancem:float,geoid:Geod,flat:Bool):
         buffered =  QgsGeometry.unaryUnion(buffered)
     return(buffered) #need to reproject
 
-def buff_line(p1,p2,distance,geoid:Geod,flatstart:Bool=False,flatend:Bool=False):
+def buff_line(p1,p2,distance,geoid:Geod,flatstart:bool=False,flatend:bool=False):
 	az=geoid.inv(p1.x, p1.y, p2.x, p2.y)[0] #,caps=512
 	lim=abs(az)+90.0
 	if flatend:
@@ -162,7 +165,7 @@ class EllipsoidBufferAlgorithm(QgsProcessingAlgorithm):
     ENDSTYLE = 'ENDSTYLE'
     Capstyle = ['Round','Flat']
 
-    def initAlgorithm(self, config):
+    def initAlgorithm(self, config=None):
         """
         Here we define the inputs and output of the algorithm, along
         with some other properties.
@@ -181,10 +184,10 @@ class EllipsoidBufferAlgorithm(QgsProcessingAlgorithm):
         self.addParameter(QgsProcessingParameterDistance(self.DISTM,self.tr('Distance Meter'))
         )
 
-        self.addParameter(QgsProcessingParameterEnum(self.ENDSTYLE,selt.tr('End style'),self.Capstyle,allowMultiple=False,
+        self.addParameter(QgsProcessingParameterEnum(self.ENDSTYLE,self.tr('End style'),self.Capstyle,allowMultiple=False,
                                                       defaultValue=0))
 
-        self.addParameter(QgsProcessingBoolean(self.DISSB,self.tr("Dissolve features"),False))
+        self.addParameter(QgsProcessingParameterBoolean(self.DISSB,self.tr("Dissolve features"),False))
 
         self.addParameter(QgsProcessingParameterCrs(self.ELLIPSOID,self.tr("Ellipsoid to use"),defaultValue= None
                         ,optional = True))
@@ -218,7 +221,7 @@ class EllipsoidBufferAlgorithm(QgsProcessingAlgorithm):
             flatEnd =True
         else:
             flatEnd = False
-        dissolveB = self.parameterAsBoolean(parameter,self.DISSB,context)
+        dissolveB = self.parameterAsBoolean(parameters,self.DISSB,context)
         # Compute the number of steps to display within the progress bar and
         # get features from source
         total = 100.0 / source.featureCount() if source.featureCount() else 0
@@ -227,9 +230,9 @@ class EllipsoidBufferAlgorithm(QgsProcessingAlgorithm):
         currentCrs =  source.sourceCrs()
 
         if interimCrs:
-            Ellipsoid = interimCrs.ellipsoidAcronym()
+            Ellipsoid = interimCrs
         else:
-            Ellipsoid = currentCrs.ellipsoidAcronym()
+            Ellipsoid = currentCrs
 
         for current, feature in enumerate(features):
             # Stop the algorithm if cancel button has been clicked
