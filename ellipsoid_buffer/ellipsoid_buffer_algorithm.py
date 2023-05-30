@@ -31,7 +31,7 @@ __copyright__ = '(C) 2023 by Alex RL'
 __revision__ = '$Format:%H$'
 
 from qgis.PyQt.QtCore import QCoreApplication
-from qgis.core import (QgsProcessing,QgsCoordinateTransform,QgsCoordinate,QgsCoordinateReferenceSystems,QgsGeometry,QgsGeometryCollection,
+from qgis.core import (QgsProcessing,QgsCoordinateTransform,QgsCoordinateReferenceSystem,QgsGeometry,QgsGeometryCollection,
                        QgsFeatureSink,QgsProcessingParameterDistance,QgsProcessingParameterEnum,QgsProcessingParameterBoolean,
                        QgsProcessingException,QgsProcessingParameterCrs,
                        QgsProcessingAlgorithm,
@@ -46,74 +46,73 @@ from geographiclib.geodesic import Geodesic #if fail run install script?
 
 try:
 	polyt= Qgis.WkbType.PolygonGeomettry
-Except:
+except:
 	polyt=QgsWkbTypes.Polygon
 
 def buffer (geometry,distancem,srcCrs,destCrs,dissolve=True,flatcap=False):
-  if distancem == 0.0:
-    return(geometry)
-	fwdtrsctx = QgsCoordinateTransform(srcCrs,destCrs )
-	revtrsctx = QgsCoordinateTransform(destCrs,srcCrs )
-	result=geometry.transform(fwdtrsctx)
-  if not(result):
-		raise QgsException("Failed to transform")
-  crsvars=dict({tuple( i[1:].split('=')) for i in  destCrs.toProj().split(' ') if '=' in i})
-  if 'ellps' in crsvars:
-     geodes = Geod(crsvars['ellps'])#Geodesic.WGS84
-  else: #https://proj.org/en/9.2/usage/ellipsoids.html
-    geodes = Geod(a=crsvars.get('a',None),b=crsvars.get('b',None),f=crsvars.get('k',None))#Geodesic(equatrad,flattening) #Geodesic(6378388, 1/297.0)
+    if distancem == 0.0:
+        return(geometry)
+    fwdtrsctx = QgsCoordinateTransform(srcCrs,destCrs )
+    revtrsctx = QgsCoordinateTransform(destCrs,srcCrs )
+    result=geometry.transform(fwdtrsctx)
+    if not(result):
+        raise QgsException("Failed to transform")
+    crsvars=dict({tuple( i[1:].split('=')) for i in  destCrs.toProj().split(' ') if '=' in i})
+    if 'ellps' in crsvars:
+        geodes = Geod(crsvars['ellps'])#Geodesic.WGS84
+    else: #https://proj.org/en/9.2/usage/ellipsoids.html
+        geodes = Geod(a=crsvars.get('a',None),b=crsvars.get('b',None),f=crsvars.get('k',None))#Geodesic(equatrad,flattening) #Geodesic(6378388, 1/297.0)
 
-	buffered=_buffer(geometry.asGeometryCollection(),distancem,geodes,flatcap)
-	if ( dissolve):
-		buffered= QgsGeometry.unaryUnion(buffered)
-	result= buffered.transform(revtrsctx)
-	if not(result):
-		raise QgsExcepiton("could not transform back resulting geometry")
-	return(buffered)
+        buffered=_buffer(geometry.asGeometryCollection(),distancem,geodes,flatcap)
+    if ( dissolve):
+        buffered= QgsGeometry.unaryUnion(buffered)
+    result= buffered.transform(revtrsctx)
+    if not(result):
+        raise QgsExcepiton("could not transform back resulting geometry")
+    return(buffered)
 
 def _buffer (geometry,distancem:float,geoid:Geod,flat:Bool):
-	if len(geometry>1):
-		buffered_coll=[]
-		for geom in  geometry:
-			buffered=_buffer( geom,distancem,geoid,flat)
-			buffered_coll.append(buffered)
-		return(buffered_coll)
-	geometry=geometry[0] //QgsGeometry
-	if geometry.isMultipart():
-		buffered_coll=[]
-		for part in  geometry.parts():
-			buffered=_buffer( part,distancem,geoid,flat)
-			buffered_coll.append(buffered)
-		return(buffered_coll)
-	previousVertex=None
-	previousAz = None
-	buffered=list()
-	for ix,vertex in enumerate(geometry.vertices()):
-		if (ix==0):
-      previousVertex=vertex
-			continue
-		newbuff=buff_line(peviousVertex,vertex,distancem,geoid,flatstart = flat and ix ==1,flatend=flat)
-		buffered.append(newbuff)
-		previousVertex=vertex
+    if len(geometry>1):
+        buffered_coll=[]
+        for geom in  geometry:
+            buffered=_buffer( geom,distancem,geoid,flat)
+            buffered_coll.append(buffered)
+        return(buffered_coll)
+    geometry=geometry[0] //QgsGeometry
+    if geometry.isMultipart():
+        buffered_coll=[]
+        for part in  geometry.parts():
+            buffered=_buffer( part,distancem,geoid,flat)
+            buffered_coll.append(buffered)
+        return(buffered_coll)
+    previousVertex=None
+    previousAz = None
+    buffered=list()
+    for ix,vertex in enumerate(geometry.vertices()):
+        if (ix==0):
+            previousVertex=vertex
+            continue
+        newbuff=buff_line(peviousVertex,vertex,distancem,geoid,flatstart = flat and ix ==1,flatend=flat)
+        buffered.append(newbuff)
+        previousVertex=vertex
 
-  v0 = geoemtry.vertexAt(0)
-	if (geometry.wkbType() == polyt):
-		if ( previousVertex != v0 ):
-			buffered.append(buffLine(previousVertex, v0,distancem,geoid))
-		buffered = QgsGeometry.unaryUnion(buffered)
-		#//check outside and inside range? process as line and merge with polygon, if buffer is negative?
-		#// buffer as line
-		if distance < 0.0:
-			buffered=geometry.difference(buffered)
-		else:
-			buffered= QgsGeometry.unaryUnion([buffered,geometry])
-	elif ix == 0: // point
-		buffered=make_arcs(srcPnt,distance,geoid)
-		#make points at given interval/precision
-	else:
-		buffered =  QgsGeometry.unaryUnion(buffered)
-
-	return(buffered) //need to reproject
+    v0 = geoemtry.vertexAt(0)
+    if (geometry.wkbType() == polyt):
+        if ( previousVertex != v0 ):
+            buffered.append(buffLine(previousVertex, v0,distancem,geoid))
+        buffered = QgsGeometry.unaryUnion(buffered)
+        #//check outside and inside range? process as line and merge with polygon, if buffer is negative?
+        #// buffer as line
+        if distance < 0.0:
+            buffered=geometry.difference(buffered)
+        else:
+            buffered= QgsGeometry.unaryUnion([buffered,geometry])
+    elif (ix == 0): # point
+        buffered=make_arcs(srcPnt,distance,geoid)
+        #make points at given interval/precision
+    else:
+        buffered =  QgsGeometry.unaryUnion(buffered)
+    return(buffered) #need to reproject
 
 def buff_line(p1,p2,distance,geoid:Geod,flatstart:Bool=False,flatend:Bool=False):
 	az=geoid.inv(p1.x, p1.y, p2.x, p2.y)[0] #,caps=512
@@ -187,7 +186,7 @@ class EllipsoidBufferAlgorithm(QgsProcessingAlgorithm):
 
         self.addParameter(QgsProcessingBoolean(self.DISSB,self.tr("Dissolve features"),False))
 
-        self.addParameter(QgsProcessingParameterCrs(self.ELLIPSOID,self.tr("Ellipsoid to use"),defaultValue= ?
+        self.addParameter(QgsProcessingParameterCrs(self.ELLIPSOID,self.tr("Ellipsoid to use"),defaultValue= None
                         ,optional = True))
 
         # We add a feature sink in which to store our processed features (this
