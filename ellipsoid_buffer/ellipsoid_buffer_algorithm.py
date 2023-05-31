@@ -52,7 +52,7 @@ except:
 def buffer (geometry,distancem,srcCrs,destCrs,dissolve=True,flatcap=False):
     if distancem == 0.0:
         return(geometry)
-    geoid = QgsCoordinateReferenceSystem(destCrs.ellipsoidAcronym())
+    geoid = destCrs.toGeographicCrs()#ellipsoidAcronym())
     if not(geoid.isValid):
         #missing in proj, solution?
     fwdtrsctx = QgsCoordinateTransform(srcCrs,geoid, QgsProject.instance())
