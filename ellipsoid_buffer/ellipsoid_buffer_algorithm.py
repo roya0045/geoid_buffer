@@ -44,6 +44,9 @@ from geographiclib.geodesic import Geodesic #if fail run install script?
 
 #//https://sourceforge.net/p/saga-gis/code/ci/master/tree/saga-gis/src/tools/shapes/shapes_tools/shapes_buffer.cpp
 
+parlist = ['a','b','k']
+geoparams={'a':'a','b':'b','k':'f'}
+
 try:
 	polyt= Qgis.WkbType.PolygonGeomettry
 except:
@@ -54,23 +57,24 @@ def buffer (geometry,distancem,srcCrs,destCrs,dissolve=True,flatcap=False):
         return(geometry)
     geoid = destCrs.toGeographicCrs()#ellipsoidAcronym())
     if not(geoid.isValid):
-        #missing in proj, solution?
+        raise QgsProcessingException("invalid crs")
     fwdtrsctx = QgsCoordinateTransform(srcCrs,geoid, QgsProject.instance())
     revtrsctx = QgsCoordinateTransform(geoid,srcCrs , QgsProject.instance())
     result=geometry.transform(fwdtrsctx)
-    if not(result):
+    if not(result or geometry.isGeosValid() ):
         raise QgsProcessingException("Failed to transform")
     crsvars=dict({tuple( i[1:].split('=')) for i in  destCrs.toProj().split(' ') if '=' in i})
     if 'ellps' in crsvars:
         geodes = Geod(crsvars['ellps'])#Geodesic.WGS84
     else: #https://proj.org/en/9.2/usage/ellipsoids.html
-        geodes = Geod(a=crsvars.get('a',None),b=crsvars.get('b',None),f=crsvars.get('k',None))#Geodesic(equatrad,flattening) #Geodesic(6378388, 1/297.0)
+        elkwg = dict((geoparams.get(b),crsvars.get(b)) for b in parlist if b in crsvars )
+        geodes = Geod(**elkwg)#Geodesic(equatrad,flattening) #Geodesic(6378388, 1/297.0)
 
-        buffered=_buffer(geometry.asGeometryCollection(),distancem,geodes,flatcap)
+    buffered=_buffer(geometry.asGeometryCollection(),distancem,geodes,flatcap)
     if ( dissolve):
         buffered= QgsGeometry.unaryUnion(buffered)
     result= buffered.transform(revtrsctx)
-    if not(result):
+    if not(result)  or geometry.isGeosValid() :
         raise QgsProcessingException("could not transform back resulting geometry")
     return(buffered)
 
