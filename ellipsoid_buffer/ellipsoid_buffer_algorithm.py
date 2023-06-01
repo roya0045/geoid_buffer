@@ -34,7 +34,7 @@ from qgis.PyQt.QtCore import QCoreApplication
 from qgis.core import (QgsProcessing,QgsCoordinateTransform,QgsCoordinateReferenceSystem,QgsGeometry,QgsGeometryCollection,QgsWkbTypes,
                        QgsFeatureSink,QgsProcessingParameterDistance,QgsProcessingParameterEnum,QgsProcessingParameterBoolean,
                        QgsProcessingException,QgsProcessingParameterCrs,QgsProject,QgsProcessingException,
-                       QgsProcessingAlgorithm,
+                       QgsProcessingAlgorithm,QgsPoint,
                        QgsProcessingParameterFeatureSource,
                        QgsProcessingParameterFeatureSink)
 from qgis import processing
@@ -52,7 +52,7 @@ try:
 except:
 	polyt=QgsWkbTypes.Polygon
 
-def buffer (geometry,distancem,srcCrs,destCrs,dissolve=True,flatcap=False):
+def buffer (geometry,distancem,srcCrs,destCrs,feedback,dissolve=True,flatcap=False):
     if distancem == 0.0:
         return(geometry)
     geoid = destCrs.toGeographicCrs()#ellipsoidAcronym())
@@ -67,25 +67,26 @@ def buffer (geometry,distancem,srcCrs,destCrs,dissolve=True,flatcap=False):
     if 'ellps' in crsvars:
         geodes = Geod(crsvars['ellps'])#Geodesic.WGS84
     else: #https://proj.org/en/9.2/usage/ellipsoids.html
-        elkwg = dict((geoparams.get(b),crsvars.get(b)) for b in parlist if b in crsvars )
+        elkwg = dict((geoparams.get(b),float(crsvars.get(b))) for b in parlist if b in crsvars )
+        feedback.pushInfo(str(elkwg))
         geodes = Geod(**elkwg)#Geodesic(equatrad,flattening) #Geodesic(6378388, 1/297.0)
 
-    buffered=_buffer(geometry.asGeometryCollection(),distancem,geodes,flatcap)
+    buffered=_buffer(geometry.asGeometryCollection(),distancem,geodes,flatcap,feedback)
     if ( dissolve):
         buffered= QgsGeometry.unaryUnion(buffered)
-    result= buffered.transform(revtrsctx)
-    if not(result)  or geometry.isGeosValid() :
+    result=[ buff.transform(revtrsctx) for buff in buffered]
+    if not(result)  or result[0].isGeosValid() :
         raise QgsProcessingException("could not transform back resulting geometry")
     return(buffered)
 
-def _buffer (geometry,distancem:float,geoid:Geod,flat:bool):
-    if len(geometry>1):
+def _buffer (geometry,distancem:float,geoid:Geod,flat:bool,feedback):
+    if len(geometry)>1:
         buffered_coll=[]
         for geom in  geometry:
             buffered=_buffer( geom,distancem,geoid,flat)
             buffered_coll.append(buffered)
         return(buffered_coll)
-    geometry=geometry[0] //QgsGeometry
+    geometry=geometry[0] #//QgsGeometry
     if geometry.isMultipart():
         buffered_coll=[]
         for part in  geometry.parts():
@@ -103,7 +104,7 @@ def _buffer (geometry,distancem:float,geoid:Geod,flat:bool):
         buffered.append(newbuff)
         previousVertex=vertex
 
-    v0 = geoemtry.vertexAt(0)
+    v0 = geometry.vertexAt(0)
     if (geometry.wkbType() == polyt):
         if ( previousVertex != v0 ):
             buffered.append(buffLine(previousVertex, v0,distancem,geoid))
@@ -115,7 +116,8 @@ def _buffer (geometry,distancem:float,geoid:Geod,flat:bool):
         else:
             buffered= QgsGeometry.unaryUnion([buffered,geometry])
     elif (ix == 0): # point
-        buffered=make_arcs(srcPnt,distance,geoid)
+        feedback.pushInfo(str(v0.x()))
+        buffered=make_arc(v0,distancem,geoid)
         #make points at given interval/precision
     else:
         buffered =  QgsGeometry.unaryUnion(buffered)
@@ -134,13 +136,12 @@ def buff_line(p1,p2,distance,geoid:Geod,flatstart:bool=False,flatend:bool=False)
 
  #//https://geographiclib.sourceforge.io/Python/doc/code.html#geographiclib.geodesic.Geodesic.Direct
 def make_arc(srcPnt,distance,geoid:Geod,start:float=0.0,end:float=360.0,precision:float=1.0):
-
-	arc=[]
-	for az in range(start,end+precision,precision):
-		rlong,rlat,raz=geoid.fwd(srcPnt.x,srcPnt.y,az,dist,return_back_azimuth =False)
-		arc.append(QgsPoint(rlong,rlat))
-
-	return(arc)
+    arc=[]
+    steps = int((end-start)/precision)
+    for az in range(steps+1):
+        rlong,rlat,raz=geoid.fwd(srcPnt.x(),srcPnt.y(),steps*az,distance)#,return_back_azimuth =False)
+        arc.append(QgsPoint(rlong,rlat))
+    return(arc)
 
 
 class EllipsoidBufferAlgorithm(QgsProcessingAlgorithm):
@@ -185,7 +186,7 @@ class EllipsoidBufferAlgorithm(QgsProcessingAlgorithm):
             )
         )
 
-        self.addParameter(QgsProcessingParameterDistance(self.DISTM,self.tr('Distance Meter'))
+        self.addParameter(QgsProcessingParameterDistance(self.DISTM,self.tr('Distance Meter'),defaultValue=100.0)
         )
 
         self.addParameter(QgsProcessingParameterEnum(self.ENDSTYLE,self.tr('End style'),self.Capstyle,allowMultiple=False,
@@ -233,7 +234,7 @@ class EllipsoidBufferAlgorithm(QgsProcessingAlgorithm):
 
         currentCrs =  source.sourceCrs()
 
-        if interimCrs:
+        if interimCrs.isValid():
             Ellipsoid = interimCrs
         else:
             Ellipsoid = currentCrs
@@ -243,7 +244,7 @@ class EllipsoidBufferAlgorithm(QgsProcessingAlgorithm):
             if feedback.isCanceled():
                 break
             oldgeometry=feature.geometry()
-            buffered= buffer(oldgeometry,distancem,currentCrs, Ellipsoid,dissolveB,flatEnd)
+            buffered= buffer(oldgeometry,distancem,currentCrs, Ellipsoid,feedback,dissolveB,flatEnd)
 
             feature.setGeometry(buffered)
 
