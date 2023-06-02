@@ -33,8 +33,8 @@ __revision__ = '$Format:%H$'
 from qgis.PyQt.QtCore import QCoreApplication
 from qgis.core import (QgsProcessing,QgsCoordinateTransform,QgsCoordinateReferenceSystem,QgsGeometry,QgsGeometryCollection,QgsWkbTypes,
                        QgsFeatureSink,QgsProcessingParameterDistance,QgsProcessingParameterEnum,QgsProcessingParameterBoolean,
-                       QgsProcessingException,QgsProcessingParameterCrs,QgsProject,QgsProcessingException,
-                       QgsProcessingAlgorithm,QgsPointXY,QgsPolygon,QgsLineString,QgsPolyLineXY,QgsPolygonXY,QgsPoint,
+                       QgsProcessingException,QgsProcessingParameterCrs,QgsProject,QgsProcessingException,QgsMultiPolygon,
+                       QgsProcessingAlgorithm,QgsPointXY,QgsPolygon,QgsLineString,QgsPoint,
                        QgsProcessingParameterFeatureSource,
                        QgsProcessingParameterFeatureSink)
 from qgis import processing
@@ -55,7 +55,13 @@ except:
     mpolyt = QgsWkbTypes.MultiPolygon
 
 def pts2qgeom(ptslist):
-    return(QgsGeometry.fromMultiPolygonXY(QgsLineStringXY(ptslist)))
+    multipoly = QgsMultiPolygon()
+    if isinstance(ptslist[0],list):#nested lists
+        for ptys in ptslist:
+            multipoly.addGeometry(QgsPolygon(QgsLineString(ptys)))
+    else:
+        multipoly.addGeometry(QgsPolygon(QgsLineString(ptslist)))
+    return(QgsGeometry.fromWkt(multipoly.asWkt()))
 
 def buffer (geometry,distancem,srcCrs,destCrs,feedback,dissolve=True,flatcap=False):
     if distancem == 0.0:
@@ -82,10 +88,16 @@ def buffer (geometry,distancem,srcCrs,destCrs,feedback,dissolve=True,flatcap=Fal
         return(buffered)
     if ( dissolve):
         buffered= QgsGeometry.unaryUnion(buffered)
-    [ buff.transform(revtrsctx) for buff in buffered]
-    if not(buffered)  or buffered[0].isGeosValid() :
+    retgeom =QgsGeometry()
+    for buff in buffered:
+        feedback.pushInfo(buff.asWkt())
+        buff.transform(revtrsctx)
+        feedback.pushInfo(buff.asWkt())
+        retgeom.addPartGeometry(buff)
+    feedback.pushInfo(retgeom.asWkt())
+    if not(retgeom.isGeosValid() ) :
         raise QgsProcessingException("could not transform back resulting geometry")
-    return(buffered)
+    return(retgeom)
 
 def _buffer (geometry,distancem:float,geoid:Geod,flat:bool,feedback):
     if isinstance(geometry,list):
@@ -109,14 +121,14 @@ def _buffer (geometry,distancem:float,geoid:Geod,flat:bool,feedback):
         if (ix==0):
             previousVertex=vertex
             continue
-        newbuff=buff_line(peviousVertex,vertex,distancem,geoid,flatstart = flat and ix ==1,flatend=flat)
+        newbuff=buff_line(peviousVertex,vertex,distancem,geoid,feedback,flatstart = flat and ix ==1,flatend=flat)
         buffered.append(newbuff)
         previousVertex=vertex
 
     v0 = geometry.vertexAt(0)
     if (geometry.wkbType() == polyt):
         if ( previousVertex != v0 ):
-            buffered.append(buffLine(previousVertex, v0,distancem,geoid))
+            buffered.append(buffLine(previousVertex, v0,distancem,geoid,feedback))
         buffered = QgsGeometry.unaryUnion(buffered)
         #//check outside and inside range? process as line and merge with polygon, if buffer is negative?
         #// buffer as line
@@ -126,30 +138,32 @@ def _buffer (geometry,distancem:float,geoid:Geod,flat:bool,feedback):
             buffered= QgsGeometry.unaryUnion([buffered,geometry])
     elif (ix == 0): # point
         feedback.pushInfo(str(v0.x()))
-        buffered=make_arc(v0,distancem,geoid)
+        buffered=make_arc(v0,distancem,geoid,feedback)
         buffered = pts2qgeom(buffered)
         #make points at given interval/precision
     else:
         buffered =  QgsGeometry.unaryUnion(buffered)
     return(buffered) #need to reproject
 
-def buff_line(p1,p2,distance,geoid:Geod,flatstart:bool=False,flatend:bool=False):
+def buff_line(p1,p2,distance,geoid:Geod,feedback,flatstart:bool=False,flatend:bool=False):
 	az=geoid.inv(p1.x, p1.y, p2.x, p2.y)[0] #,caps=512
 	lim=abs(az)+90.0
 	if flatend:
 		precision = 180.0
-	startarc= make_arc(p1,distance,geoid,lim,lim+180.0,180.0 if flatstart else precision)
-	endarc= make_arc(p2,distance,geoid,lim,lim-180.0,180.0 if flatend else precision)
+	startarc= make_arc(p1,distance,geoid,feedback,lim,lim+180.0,180.0 if flatstart else precision)
+	endarc= make_arc(p2,distance,geoid,feedback,lim,lim-180.0,180.0 if flatend else precision)
 	#//join arcs
 	return(pts2qgeom([startarc+endarc+startarc[0]]) )
 	
 
  #//https://geographiclib.sourceforge.io/Python/doc/code.html#geographiclib.geodesic.Geodesic.Direct
-def make_arc(srcPnt,distance,geoid:Geod,start:float=0.0,end:float=360.0,precision:float=1.0):
+def make_arc(srcPnt,distance,geoid:Geod,feedback,start:float=0.0,end:float=360.0,precision:float=1.0):
     arc=[]
     steps = int((end-start)/precision)
     for az in range(steps+1):
-        rlong,rlat,raz=geoid.fwd(srcPnt.x(),srcPnt.y(),steps*az,distance)#,return_back_azimuth =False)
+        angle = (start+(az*precision))
+        feedback.pushInfo(str(angle))
+        rlong,rlat,raz=geoid.fwd(srcPnt.x(),srcPnt.y(),angle,distance)#,return_back_azimuth =False)
         arc.append(QgsPointXY(rlong,rlat))
     return(arc)
 
