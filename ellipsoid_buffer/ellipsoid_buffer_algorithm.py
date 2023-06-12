@@ -35,7 +35,7 @@ from qgis.core import (QgsProcessing,QgsCoordinateTransform,QgsCoordinateReferen
                        QgsFeatureSink,QgsProcessingParameterDistance,QgsProcessingParameterEnum,QgsProcessingParameterBoolean,
                        QgsProcessingException,QgsProcessingParameterCrs,QgsProject,QgsProcessingException,QgsMultiPolygon,
                        QgsProcessingAlgorithm,QgsPointXY,QgsPolygon,QgsLineString,QgsPoint,
-                       QgsProcessingParameterFeatureSource,
+                       QgsProcessingParameterFeatureSource,QgsProcessingParameterNumber,
                        QgsProcessingParameterFeatureSink)
 from qgis import processing
 from pyproj import Proj,Geod #https://pyproj4.github.io/pyproj/stable/api/geod.html#pyproj.Geod.fwd
@@ -54,7 +54,8 @@ except:
     polyt=QgsWkbTypes.Polygon
     mpolyt = QgsWkbTypes.MultiPolygon
 
-def pts2qgeom(ptslist):
+def pts2qgeom(ptslist,feedback):
+    feedback.pushInfo(str(ptslist))
     multipoly = QgsMultiPolygon()
     if isinstance(ptslist[0],list):#nested lists
         for ptys in ptslist:
@@ -63,7 +64,7 @@ def pts2qgeom(ptslist):
         multipoly.addGeometry(QgsPolygon(QgsLineString(ptslist)))
     return(QgsGeometry.fromWkt(multipoly.asWkt()))
 
-def buffer (geometry,distancem,srcCrs,destCrs,feedback,dissolve=True,flatcap=False):
+def buffer (geometry,distancem,srcCrs,destCrs,feedback,dissolve=True,flatcap=False,precision=1.0):
     if distancem == 0.0:
         return(geometry)
     geoid = destCrs.toGeographicCrs()#ellipsoidAcronym())
@@ -79,39 +80,45 @@ def buffer (geometry,distancem,srcCrs,destCrs,feedback,dissolve=True,flatcap=Fal
         geodes = Geod(crsvars['ellps'])#Geodesic.WGS84
     else: #https://proj.org/en/9.2/usage/ellipsoids.html
         elkwg = dict((geoparams.get(b),float(crsvars.get(b))) for b in parlist if b in crsvars )
-        feedback.pushInfo(str(elkwg))
+        #feedback.pushInfo(str(elkwg))
         geodes = Geod(**elkwg)#Geodesic(equatrad,flattening) #Geodesic(6378388, 1/297.0)
 
-    buffered=_buffer(geometry.asGeometryCollection(),distancem,geodes,flatcap,feedback)
+    buffered=_buffer(geometry.asGeometryCollection(),distancem,geodes,flatcap,feedback,precision)
     if not(isinstance(buffered,list)):
         buffered.transform(revtrsctx)
         return(buffered)
     if ( dissolve):
         buffered= QgsGeometry.unaryUnion(buffered)
     retgeom =QgsGeometry()
+    feedback.pushInfo(str(len(buffered)))
     for buff in buffered:
-        feedback.pushInfo(buff.asWkt())
+        #feedback.pushInfo(buff.asWkt())
         buff.transform(revtrsctx)
-        feedback.pushInfo(buff.asWkt())
+        if buff.isMultipart():
+            ok= buff.convertToSingleType()
+            feedback.pushInfo(str(ok))
+        #feedback.pushInfo(buff.asWkt())
         retgeom.addPartGeometry(buff)
-    feedback.pushInfo(retgeom.asWkt())
+    #feedback.pushInfo(retgeom.asWkt())
     if not(retgeom.isGeosValid() ) :
-        raise QgsProcessingException("could not transform back resulting geometry")
+        feedback.pushInfo("geom is invalid")
+        feedback.pushInfo(retgeom.asWkt())
+        #raise QgsProcessingException("could not transform back resulting geometry")
     return(retgeom)
 
-def _buffer (geometry,distancem:float,geoid:Geod,flat:bool,feedback):
+def _buffer (geometry,distancem:float,geoid:Geod,flat:bool,feedback,precision):
     if isinstance(geometry,list):
         if len(geometry)>1:
             buffered_coll=[]
             for geom in  geometry:
-                buffered=_buffer( geom,distancem,geoid,flat,feedback)
+                buffered=_buffer( geom,distancem,geoid,flat,feedback,precision)
                 buffered_coll.append(buffered)
             return(buffered_coll)
         geometry=geometry[0] #//QgsGeometry
     if geometry.isMultipart():
         buffered_coll=[]
         for part in  geometry.parts():
-            buffered=_buffer( part,distancem,geoid,flat,feedback)
+            buffered=_buffer( part,distancem,geoid,flat,feedback,precision)
             buffered_coll.append(buffered)
         return(buffered_coll)
     previousVertex=None
@@ -120,49 +127,54 @@ def _buffer (geometry,distancem:float,geoid:Geod,flat:bool,feedback):
     for ix,vertex in enumerate(geometry.vertices()):
         if (ix==0):
             previousVertex=vertex
-            continue
-        newbuff=buff_line(peviousVertex,vertex,distancem,geoid,feedback,flatstart = flat and ix ==1,flatend=flat)
+            #  continue
+        newbuff=buff_line(previousVertex,vertex,distancem,geoid,feedback,flatstart = flat and ix ==1,flatend=flat,precision=precision)
         buffered.append(newbuff)
         previousVertex=vertex
 
     v0 = geometry.vertexAt(0)
     if (geometry.wkbType() == polyt):
         if ( previousVertex != v0 ):
-            buffered.append(buffLine(previousVertex, v0,distancem,geoid,feedback))
+            buffered.append(buff_line(previousVertex, v0,distancem,geoid,feedback,precision=precision))
         buffered = QgsGeometry.unaryUnion(buffered)
         #//check outside and inside range? process as line and merge with polygon, if buffer is negative?
         #// buffer as line
-        if distance < 0.0:
+        if distancem < 0.0:
             buffered=geometry.difference(buffered)
         else:
             buffered= QgsGeometry.unaryUnion([buffered,geometry])
     elif (ix == 0): # point
         feedback.pushInfo(str(v0.x()))
-        buffered=make_arc(v0,distancem,geoid,feedback)
-        buffered = pts2qgeom(buffered)
+        buffered=make_arc(v0,distancem,geoid,feedback,precision=precision)
+        buffered = pts2qgeom(buffered,feedback)
         #make points at given interval/precision
     else:
         buffered =  QgsGeometry.unaryUnion(buffered)
     return(buffered) #need to reproject
 
-def buff_line(p1,p2,distance,geoid:Geod,feedback,flatstart:bool=False,flatend:bool=False):
-	az=geoid.inv(p1.x, p1.y, p2.x, p2.y)[0] #,caps=512
-	lim=abs(az)+90.0
-	if flatend:
-		precision = 180.0
-	startarc= make_arc(p1,distance,geoid,feedback,lim,lim+180.0,180.0 if flatstart else precision)
-	endarc= make_arc(p2,distance,geoid,feedback,lim,lim-180.0,180.0 if flatend else precision)
-	#//join arcs
-	return(pts2qgeom([startarc+endarc+startarc[0]]) )
-	
+def buff_line(p1,p2,distance,geoid:Geod,feedback,flatstart:bool=False,flatend:bool=False,precision=1.0):
+
+    az=geoid.inv(p1.x(), p1.y(), p2.x(), p2.y())[0] #,caps=512
+    lim=abs(az)+90.0
+
+    startarc= make_arc(p1,distance,geoid,feedback,lim,lim+180.0,180.0 if flatstart else precision)
+    endarc= make_arc(p2,distance,geoid,feedback,lim,lim-180.0,180.0 if flatend else precision) #to fix
+    #//join arcs
+    feedback.pushInfo(str(startarc))
+    feedback.pushInfo(str(endarc))
+    return(pts2qgeom([startarc+endarc+[startarc[0],]],feedback) )
+
 
  #//https://geographiclib.sourceforge.io/Python/doc/code.html#geographiclib.geodesic.Geodesic.Direct
 def make_arc(srcPnt,distance,geoid:Geod,feedback,start:float=0.0,end:float=360.0,precision:float=1.0):
     arc=[]
+    feedback.pushInfo(str(start))
+    feedback.pushInfo(str(end))
     steps = int((end-start)/precision)
-    for az in range(steps+1):
+    feedback.pushInfo(str(steps))
+    for az in range(abs(steps)+1):
         angle = (start+(az*precision))
-        feedback.pushInfo(str(angle))
+        #feedback.pushInfo(str(angle))
         rlong,rlat,raz=geoid.fwd(srcPnt.x(),srcPnt.y(),angle,distance)#,return_back_azimuth =False)
         arc.append(QgsPointXY(rlong,rlat))
     return(arc)
@@ -192,6 +204,7 @@ class EllipsoidBufferAlgorithm(QgsProcessingAlgorithm):
     INPUT = 'INPUT'
     DISSB = 'DISSB'
     ENDSTYLE = 'ENDSTYLE'
+    PRECISION='PRECISION'
     Capstyle = ['Round','Flat']
 
     def initAlgorithm(self, config=None):
@@ -230,6 +243,8 @@ class EllipsoidBufferAlgorithm(QgsProcessingAlgorithm):
                 self.tr('Output layer')
             )
         )
+        
+        self.addParameter(QgsProcessingParameterNumber(self.PRECISION,self.tr("Precision"),QgsProcessingParameterNumber.Double,defaultValue=1.0))
 
     def processAlgorithm(self, parameters, context, feedback):
         """
@@ -251,6 +266,7 @@ class EllipsoidBufferAlgorithm(QgsProcessingAlgorithm):
         else:
             flatEnd = False
         dissolveB = self.parameterAsBoolean(parameters,self.DISSB,context)
+        precision = self.parameterAsDouble(parameters,self.PRECISION,context)
         # Compute the number of steps to display within the progress bar and
         # get features from source
         total = 100.0 / source.featureCount() if source.featureCount() else 0
@@ -268,7 +284,7 @@ class EllipsoidBufferAlgorithm(QgsProcessingAlgorithm):
             if feedback.isCanceled():
                 break
             oldgeometry=feature.geometry()
-            buffered= buffer(oldgeometry,distancem,currentCrs, Ellipsoid,feedback,dissolveB,flatEnd)
+            buffered= buffer(oldgeometry,distancem,currentCrs, Ellipsoid,feedback,dissolveB,flatEnd,precision)
 
             feature.setGeometry(buffered)
 
