@@ -99,7 +99,7 @@ def buffer (geometry,distancem,srcCrs,destCrs,feedback,dissolve=True,flatcap=Fal
             buffered = buffered.makeValid()
         return(buffered)
     if ( dissolve):
-        buffered= QgsGeometry.unaryUnion(buffered)
+        buffered= unigeom(buffered)
     geoms=list()
     #feedback.pushInfo(str(len(buffered)))
     for buff in buffered:
@@ -111,7 +111,7 @@ def buffer (geometry,distancem,srcCrs,destCrs,feedback,dissolve=True,flatcap=Fal
         #feedback.pushInfo(buff.asWkt())
         geoms.append(buff)
         
-    retgeom=QgsGeometry.collectGeometry(geoms)
+    retgeom=unigeom(geoms)
     #feedback.pushInfo(retgeom.asWkt())
     if not(retgeom.isGeosValid() ) :
         #feedback.pushInfo(retgeom.asWkt())
