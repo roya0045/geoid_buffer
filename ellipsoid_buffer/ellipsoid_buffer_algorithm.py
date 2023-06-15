@@ -201,7 +201,7 @@ def make_arc(srcPnt,distance,geoid:Geod,feedback,start:float=0.0,end:float=360.0
         #feedback.pushInfo(str(angle))
         rlong,rlat,raz=geoid.fwd(srcPnt.x(),srcPnt.y(),angle,distance)#,return_back_azimuth =False)
         arc.append(QgsPointXY(rlong,rlat))
-    rlong,rlat,raz=geoid.fwd(srcPnt.x(),srcPnt.y(),(start+180)%360,distance)#,return_back_azimuth =False)
+    rlong,rlat,raz=geoid.fwd(srcPnt.x(),srcPnt.y(),end%360.0,distance)#,return_back_azimuth =False)
     arc.append(QgsPointXY(rlong,rlat))
     return(arc)
 
