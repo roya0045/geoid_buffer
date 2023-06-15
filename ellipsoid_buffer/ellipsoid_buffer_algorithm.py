@@ -247,7 +247,7 @@ class EllipsoidBufferAlgorithm(QgsProcessingAlgorithm):
             )
         )
 
-        self.addParameter(QgsProcessingParameterDistance(self.DISTM,self.tr('Distance Meter'),defaultValue=10000.0)
+        self.addParameter(QgsProcessingParameterDistance(self.DISTM,self.tr('Distance in Meter'),defaultValue=1000.0)
         )
 
         self.addParameter(QgsProcessingParameterEnum(self.ENDSTYLE,self.tr('End style'),self.Capstyle,allowMultiple=False,
@@ -268,7 +268,7 @@ class EllipsoidBufferAlgorithm(QgsProcessingAlgorithm):
             )
         )
         
-        self.addParameter(QgsProcessingParameterNumber(self.PRECISION,self.tr("Precision"),QgsProcessingParameterNumber.Double,defaultValue=90.0))
+        self.addParameter(QgsProcessingParameterNumber(self.PRECISION,self.tr("Precision (in degree)"),QgsProcessingParameterNumber.Double,defaultValue=1.0))
 
     def processAlgorithm(self, parameters, context, feedback):
         """
