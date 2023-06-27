@@ -38,8 +38,13 @@ from qgis.core import (QgsProcessing,QgsCoordinateTransform,QgsCoordinateReferen
                        QgsProcessingParameterFeatureSource,QgsProcessingParameterNumber,
                        QgsProcessingParameterFeatureSink)
 from qgis import processing
-from pyproj import Proj,Geod #https://pyproj4.github.io/pyproj/stable/api/geod.html#pyproj.Geod.fwd
-from geographiclib.geodesic import Geodesic #if fail run install script?
+#from geographiclib.geodesic import Geodesic 
+try:
+    from pyproj import Proj,Geod #https://pyproj4.github.io/pyproj/stable/api/geod.html#pyproj.Geod.fwd
+except:
+    import subprocess
+    subprocess.check_call([sys.executable, '-m', 'pip', 'install', 'pyproj'])
+    from pyproj import Proj,Geod 
 
 
 #//https://sourceforge.net/p/saga-gis/code/ci/master/tree/saga-gis/src/tools/shapes/shapes_tools/shapes_buffer.cpp
@@ -54,6 +59,10 @@ except:
     polyt=QgsWkbTypes.Polygon
     mpolyt = QgsWkbTypes.MultiPolygon
 
+def unigeom(geoms,feedback=None):
+    return(QgsGeometry.unaryUnion(geoms))
+    #return(QgsGeometry.collectGeometry(geoms))
+
 def pts2qgeom(ptslist,feedback,debug:bool=False):
     if debug:
         feedback.pushInfo(str(ptslist))
@@ -65,9 +74,6 @@ def pts2qgeom(ptslist,feedback,debug:bool=False):
         multipoly.addGeometry(QgsPolygon(QgsLineString(ptslist)))
     return(QgsGeometry.fromWkt(multipoly.asWkt()))
 
-def unigeom(geoms,feedback=None):
-    return(QgsGeometry.unaryUnion(geoms))
-    return(QgsGeometry.collectGeometry(geoms))
 
 def buffer (geometry,distancem,srcCrs,destCrs,feedback,dissolve=True,flatcap=False,precision=1.0):
     if distancem == 0.0:
@@ -130,13 +136,16 @@ def _buffer (geometry,distancem:float,geoid:Geod,flat:bool,feedback,precision,de
                 buffered=_buffer( geom,distancem,geoid,flat,feedback,precision)
                 buffered_coll.append(buffered)
             return(buffered_coll)
-        geometry=geometry[0] #//QgsGeometry
+    
+        geometry=geometry[0]
+
     if geometry.isMultipart():
         buffered_coll=[]
         for part in  geometry.parts():
             buffered=_buffer( part,distancem,geoid,flat,feedback,precision)
             buffered_coll.append(buffered)
         return(buffered_coll)
+
     previousVertex=None
     previousAz = None
     buffered=list()
@@ -146,10 +155,7 @@ def _buffer (geometry,distancem:float,geoid:Geod,flat:bool,feedback,precision,de
             previousVertex=vertex
             continue
         newbuff=buff_line(previousVertex,vertex,distancem,geoid,feedback,flatstart = flat and ix ==1,flatend=flat,precision=precision)
-        if 0:
-            feedback.pushInfo(newbuff.asWkt())
-            if newbuff.isGeosValid():
-                feedback.pushInfo("valid")
+
         buffered.append(newbuff)
         previousVertex=vertex
 
@@ -158,8 +164,6 @@ def _buffer (geometry,distancem:float,geoid:Geod,flat:bool,feedback,precision,de
         if ( previousVertex != v0 ):
             buffered.append(buff_line(previousVertex, v0,distancem,geoid,feedback,precision=precision))
         buffered = unigeom(buffered)
-        #//check outside and inside range? process as line and merge with polygon, if buffer is negative?
-        #// buffer as line
         if distancem < 0.0:
             buffered=geometry.difference(buffered)
         else:
@@ -169,10 +173,9 @@ def _buffer (geometry,distancem:float,geoid:Geod,flat:bool,feedback,precision,de
             feedback.pushInfo(str(v0.x()))
         buffered=make_arc(v0,distancem,geoid,feedback,precision=precision)
         buffered = pts2qgeom(buffered,feedback)
-        #make points at given interval/precision
     else:
         buffered =  unigeom(buffered)
-    return(buffered) #need to reproject
+    return(buffered)
 
 def buff_line(p1,p2,distance,geoid:Geod,feedback,flatstart:bool=False,flatend:bool=False,precision=1.0,debug:bool=0):
 
@@ -181,9 +184,8 @@ def buff_line(p1,p2,distance,geoid:Geod,feedback,flatstart:bool=False,flatend:bo
     lim=abs((az+90.0)%360)
     
     startarc= make_arc(p1,distance,geoid,feedback,lim,lim+180.0,180.0 if flatstart else precision)
-    endarc= make_arc(p2,distance,geoid,feedback,lim-180.0,lim,180.0 if flatend else precision) #to fix
+    endarc= make_arc(p2,distance,geoid,feedback,lim-180.0,lim,180.0 if flatend else precision)
     #endarc.reverse()
-    #//join arcs
     if debug:
         feedback.pushInfo(str(lim))
         feedback.pushInfo(str(startarc))
@@ -191,11 +193,11 @@ def buff_line(p1,p2,distance,geoid:Geod,feedback,flatstart:bool=False,flatend:bo
     return(pts2qgeom([startarc+endarc+[startarc[0],]],feedback) )
 
 
- #//https://geographiclib.sourceforge.io/Python/doc/code.html#geographiclib.geodesic.Geodesic.Direct
+#//https://geographiclib.sourceforge.io/Python/doc/code.html#geographiclib.geodesic.Geodesic.Direct
 def make_arc(srcPnt,distance,geoid:Geod,feedback,start:float=0.0,end:float=360.0,precision:float=1.0):
     arc=[]
     steps = round((end-start)/precision)
-    #feedback.pushInfo(f"{start} _ {end} :: {steps}")
+
     for az in range(abs(steps)):
         angle = (start+(az*precision))%360
         #feedback.pushInfo(str(angle))
@@ -207,22 +209,6 @@ def make_arc(srcPnt,distance,geoid:Geod,feedback,start:float=0.0,end:float=360.0
 
 
 class EllipsoidBufferAlgorithm(QgsProcessingAlgorithm):
-    """
-    This is an example algorithm that takes a vector layer and
-    creates a new identical one.
-
-    It is meant to be used as an example of how to create your own
-    algorithms and explain methods and variables used to do it. An
-    algorithm like this will be available in all elements, and there
-    is not need for additional work.
-
-    All Processing algorithms should extend the QgsProcessingAlgorithm
-    class.
-    """
-
-    # Constants used to refer to parameters and outputs. They will be
-    # used when calling the algorithm from another algorithm, or when
-    # calling from the QGIS console.
 
     OUTPUT = 'OUTPUT'
     DISTM = 'DISTM'
@@ -234,52 +220,27 @@ class EllipsoidBufferAlgorithm(QgsProcessingAlgorithm):
     Capstyle = ['Round','Flat']
 
     def initAlgorithm(self, config=None):
-        """
-        Here we define the inputs and output of the algorithm, along
-        with some other properties.
-        """
 
-        # We add the input vector features source. It can have any kind of
-        # geometry.
-        self.addParameter(
-            QgsProcessingParameterFeatureSource(
-                self.INPUT,
-                self.tr('Input layer'),
-                [QgsProcessing.TypeVectorAnyGeometry]
-            )
-        )
+        self.addParameter(QgsProcessingParameterFeatureSource(self.INPUT,self.tr('Input layer'),
+                                                              [QgsProcessing.TypeVectorAnyGeometry]))
 
-        self.addParameter(QgsProcessingParameterDistance(self.DISTM,self.tr('Distance in Meter'),defaultValue=1000.0)
-        )
+        self.addParameter(QgsProcessingParameterDistance(self.DISTM,self.tr('Distance in Meter'),defaultValue=1000.0))
 
         self.addParameter(QgsProcessingParameterEnum(self.ENDSTYLE,self.tr('End style'),self.Capstyle,allowMultiple=False,
-                                                      defaultValue=0))
+                                                     defaultValue=0))
 
         self.addParameter(QgsProcessingParameterBoolean(self.DISSB,self.tr("Dissolve features"),False))
 
         self.addParameter(QgsProcessingParameterCrs(self.ELLIPSOID,self.tr("Ellipsoid to use"),defaultValue= None
-                        ,optional = True))
+                                                    ,optional = True))
 
-        # We add a feature sink in which to store our processed features (this
-        # usually takes the form of a newly created vector layer when the
-        # algorithm is run in QGIS).
-        self.addParameter(
-            QgsProcessingParameterFeatureSink(
-                self.OUTPUT,
-                self.tr('Output layer')
-            )
-        )
+        self.addParameter(QgsProcessingParameterFeatureSink( self.OUTPUT, self.tr('Output layer')))
         
-        self.addParameter(QgsProcessingParameterNumber(self.PRECISION,self.tr("Precision (in degree)"),QgsProcessingParameterNumber.Double,defaultValue=1.0))
+        self.addParameter(QgsProcessingParameterNumber(self.PRECISION,self.tr("Precision (in degree)"),
+                                                       QgsProcessingParameterNumber.Double,defaultValue=1.0))
 
     def processAlgorithm(self, parameters, context, feedback):
-        """
-        Here is where the processing itself takes place.
-        """
 
-        # Retrieve the feature source and sink. The 'dest_id' variable is used
-        # to uniquely identify the feature sink, and must be included in the
-        # dictionary returned by the processAlgorithm function.
         source = self.parameterAsSource(parameters, self.INPUT, context)
         (sink, dest_id) = self.parameterAsSink(parameters, self.OUTPUT,
                 context, source.fields(), mpolyt, source.sourceCrs())
@@ -287,14 +248,9 @@ class EllipsoidBufferAlgorithm(QgsProcessingAlgorithm):
         distancem = self.parameterAsDouble(parameters, self.DISTM, context)
         interimCrs = self.parameterAsCrs(parameters, self.ELLIPSOID, context)
         capstyle = self.parameterAsEnum(parameters,self.ENDSTYLE,context)
-        if capstyle == 1 :
-            flatEnd =True
-        else:
-            flatEnd = False
         dissolveB = self.parameterAsBoolean(parameters,self.DISSB,context)
         precision = self.parameterAsDouble(parameters,self.PRECISION,context)
-        # Compute the number of steps to display within the progress bar and
-        # get features from source
+
         fc=source.featureCount() if source.featureCount() else 0
         total = 100.0 / fc
         features = source.getFeatures()
@@ -307,27 +263,18 @@ class EllipsoidBufferAlgorithm(QgsProcessingAlgorithm):
             Ellipsoid = currentCrs
 
         for current, feature in enumerate(features):
-            # Stop the algorithm if cancel button has been clicked
-            #feedback.pushInfo( f"feature {current+1} out of {fc}")
+
             if feedback.isCanceled():
                 break
             oldgeometry=feature.geometry()
-            buffered= buffer(oldgeometry,distancem,currentCrs, Ellipsoid,feedback,dissolveB,flatEnd,precision)
+            buffered= buffer(oldgeometry,distancem,currentCrs, Ellipsoid,feedback,dissolveB,capstyle == 1,precision)
 
             feature.setGeometry(buffered)
 
-            # Add a feature in the sink
             sink.addFeature(feature, QgsFeatureSink.FastInsert)
 
-            # Update the progress bar
             feedback.setProgress(int(current * total))
 
-        # Return the results of the algorithm. In this case our only result is
-        # the feature sink which contains the processed features, but some
-        # algorithms may return multiple feature sinks, calculated numeric
-        # statistics, etc. These should all be included in the returned
-        # dictionary, with keys matching the feature corresponding parameter
-        # or output names.
         return {self.OUTPUT: dest_id}
 
     def name(self):
