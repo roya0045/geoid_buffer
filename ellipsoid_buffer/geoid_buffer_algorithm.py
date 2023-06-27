@@ -53,6 +53,7 @@ from qgis.core import (
     QgsPolygon,
     QgsLineString,
     QgsPoint,
+    QgsProcessingParameters,
     QgsProcessingParameterFeatureSource,
     QgsProcessingParameterNumber,
     QgsProcessingParameterFeatureSink,
@@ -412,14 +413,21 @@ class GeoidBufferAlgorithm(QgsProcessingAlgorithm):
             Ellipsoid = interimCrs
         else:
             Ellipsoid = currentCrs
+        expcont= self.createExpressionContext( parameters, context, source )
 
         for current, feature in enumerate(features):
             if feedback.isCanceled():
                 break
+            if not(feature.hasGeometry()):
+                continue
             oldgeometry = feature.geometry()
             distancem = self.distanceV
             if self.dynamicDist:
-                distancem = self.distanceExp.valueAsDouble( context.expressionContext(), distancem )
+                expcont.setFeature(feature)
+                distancem,expeval = self.distanceExp.valueAsDouble(expcont, distancem)
+                if not(expeval):
+                    feedback.pushInfo("error evaluating expression")
+                #feedback.pushInfo(str(distancem))
 
             buffered = buffer(
                 oldgeometry,
