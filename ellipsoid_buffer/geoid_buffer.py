@@ -35,7 +35,7 @@ import sys
 import inspect
 
 from qgis.core import QgsProcessingAlgorithm, QgsApplication
-from .ellipsoid_buffer_provider import EllipsoidBufferProvider
+from .geoid_buffer_provider import GeoidBufferProvider
 
 cmd_folder = os.path.split(inspect.getfile(inspect.currentframe()))[0]
 
@@ -43,14 +43,14 @@ if cmd_folder not in sys.path:
     sys.path.insert(0, cmd_folder)
 
 
-class EllipsoidBufferPlugin(object):
+class GeoidBufferPlugin(object):
 
     def __init__(self):
         self.provider = None
 
     def initProcessing(self):
         """Init Processing provider for QGIS >= 3.8."""
-        self.provider = EllipsoidBufferProvider()
+        self.provider = GeoidBufferProvider()
         QgsApplication.processingRegistry().addProvider(self.provider)
 
     def initGui(self):

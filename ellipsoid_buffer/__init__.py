@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+ -*- coding: utf-8 -*-
 """
 /***************************************************************************
  EllipsoidBuffer
@@ -37,5 +37,5 @@ def classFactory(iface):  # pylint: disable=invalid-name
     :type iface: QgsInterface
     """
     #
-    from .ellipsoid_buffer import EllipsoidBufferPlugin
-    return EllipsoidBufferPlugin()
+    from .geoid_buffer import GeoidBufferPlugin
+    return GeoidBufferPlugin()

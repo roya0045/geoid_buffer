@@ -3,16 +3,16 @@
 # This file should be included when you package your plugin.# Mandatory items:
 
 [general]
-name=EllipsoidBuffer
+name=GeoidBuffer
 qgisMinimumVersion=3.0
-description=Generate buffer in ellipsoid
+description=Geodesic buffering processing algorithm
 version=0.1
 author=Alex RL
 email=contact on github
 
 about=This plugin requires the PyProj Python libraries not provided by the QGIS distribution. Open up the OSGeo4W Shell and type "pip install pyproj" or whatever method you use to install Python libraries. You don't need to be a system administrator to do this. 
 
-	Generate buffer on the ellipsoid.
+	Geodesic buffering processing algorithm.
 
 tracker=https://github.com/roya0045/geoid_buffer
 repository=https://github.com/roya0045/geoid_buffer

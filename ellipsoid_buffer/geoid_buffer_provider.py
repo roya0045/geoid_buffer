@@ -31,10 +31,10 @@ __copyright__ = '(C) 2023 by Alex RL'
 __revision__ = '$Format:%H$'
 
 from qgis.core import QgsProcessingProvider
-from .ellipsoid_buffer_algorithm import EllipsoidBufferAlgorithm
+from .geoid_buffer_algorithm import GeoidBufferAlgorithm
 
 
-class EllipsoidBufferProvider(QgsProcessingProvider):
+class GeoidBufferProvider(QgsProcessingProvider):
 
     def __init__(self):
         """
@@ -53,7 +53,7 @@ class EllipsoidBufferProvider(QgsProcessingProvider):
         """
         Loads all algorithms belonging to this provider.
         """
-        self.addAlgorithm(EllipsoidBufferAlgorithm())
+        self.addAlgorithm(GeoidBufferAlgorithm())
         # add additional algorithms here
         # self.addAlgorithm(MyOtherAlgorithm())
 
@@ -63,7 +63,7 @@ class EllipsoidBufferProvider(QgsProcessingProvider):
         string should be a unique, short, character only string, eg "qgis" or
         "gdal". This string should not be localised.
         """
-        return 'Ellipsoi Buffer'
+        return 'Geoid Buffer'
 
     def name(self):
         """
@@ -72,7 +72,7 @@ class EllipsoidBufferProvider(QgsProcessingProvider):
 
         This string should be short (e.g. "Lastools") and localised.
         """
-        return self.tr('Ellipsoi Buffer')
+        return self.tr('Geoid Buffer')
 
     def icon(self):
         """

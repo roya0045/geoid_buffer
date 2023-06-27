@@ -315,10 +315,10 @@ def make_arc(
     return arc
 
 
-class EllipsoidBufferAlgorithm(QgsProcessingAlgorithm):
+class GeoidBufferAlgorithm(QgsProcessingAlgorithm):
     OUTPUT = "OUTPUT"
     DISTM = "DISTM"
-    ELLIPSOID = "ELLIPSOID"
+    GEOID = "GEOID"
     INPUT = "INPUT"
     DISSB = "DISSB"
     ENDSTYLE = "ENDSTYLE"
@@ -358,8 +358,8 @@ class EllipsoidBufferAlgorithm(QgsProcessingAlgorithm):
 
         self.addParameter(
             QgsProcessingParameterCrs(
-                self.ELLIPSOID,
-                self.tr("Ellipsoid to use"),
+                self.GEOID,
+                self.tr("Geoid to use"),
                 defaultValue=None,
                 optional=True,
             )
@@ -390,7 +390,7 @@ class EllipsoidBufferAlgorithm(QgsProcessingAlgorithm):
         )
 
         distancem = self.parameterAsDouble(parameters, self.DISTM, context)
-        interimCrs = self.parameterAsCrs(parameters, self.ELLIPSOID, context)
+        interimCrs = self.parameterAsCrs(parameters, self.GEOID, context)
         capstyle = self.parameterAsEnum(parameters, self.ENDSTYLE, context)
         dissolveB = self.parameterAsBoolean(parameters, self.DISSB, context)
         precision = self.parameterAsDouble(parameters, self.PRECISION, context)
@@ -437,7 +437,7 @@ class EllipsoidBufferAlgorithm(QgsProcessingAlgorithm):
         lowercase alphanumeric characters only and no spaces or other
         formatting characters.
         """
-        return "Ellipsoid buffer"
+        return "Geoid buffer"
 
     def displayName(self):
         """
@@ -467,4 +467,4 @@ class EllipsoidBufferAlgorithm(QgsProcessingAlgorithm):
         return QCoreApplication.translate("Processing", string)
 
     def createInstance(self):
-        return EllipsoidBufferAlgorithm()
+        return GeoidBufferAlgorithm()
