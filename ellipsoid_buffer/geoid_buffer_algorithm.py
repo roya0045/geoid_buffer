@@ -44,6 +44,7 @@ from qgis.core import (
     QgsProcessingParameterBoolean,
     QgsProcessingException,
     QgsProcessingParameterCrs,
+    QgsPropertyDefinition,
     QgsProject,
     QgsProcessingException,
     QgsMultiPolygon,
@@ -65,11 +66,7 @@ try:
         Geod,
     )  # https://pyproj4.github.io/pyproj/stable/api/geod.html#pyproj.Geod.fwd
 except:
-    import sys
-    import subprocess
-
-    subprocess.check_call([sys.executable, "-m", "pip", "install", "pyproj"])
-    from pyproj import Proj, Geod
+    raise QgsProcessingException("pyproj is not accessible, install the pyproj library via osgeo if available")
 
 
 # //https://sourceforge.net/p/saga-gis/code/ci/master/tree/saga-gis/src/tools/shapes/shapes_tools/shapes_buffer.cpp
@@ -334,11 +331,11 @@ class GeoidBufferAlgorithm(QgsProcessingAlgorithm):
             )
         )
 
-        self.addParameter(
-            QgsProcessingParameterDistance(
-                self.DISTM, self.tr("Distance in Meter"), defaultValue=1000.0
-            )
-        )
+        dp = QgsProcessingParameterDistance(self.DISTM,self.tr('Distance in Meter'),defaultValue=1000.0)
+        dp.setIsDynamic(True)
+        dp.setDynamicPropertyDefinition( QgsPropertyDefinition( "Distance" , self.tr( "Distance in meters" ), QgsPropertyDefinition.Integer ) )
+        dp.setDynamicLayerParameterName( "INPUT" )
+        self.addParameter(dp)
 
         self.addParameter(
             QgsProcessingParameterEnum(
@@ -378,6 +375,16 @@ class GeoidBufferAlgorithm(QgsProcessingAlgorithm):
             )
         )
 
+    def prepareAlgorithm(self, parameters, context, feedback ):
+
+      self.distanceV = self.parameterAsDouble( parameters,  'DISTM' , context )
+
+      self.dynamicDist = QgsProcessingParameters.isDynamic( parameters, QStringLiteral( 'DISTM' ) )
+      if self.dynamicDist:
+        self.distanceExp = parameters.value( 'DISTM' ).value()
+
+      return (True)
+
     def processAlgorithm(self, parameters, context, feedback):
         source = self.parameterAsSource(parameters, self.INPUT, context)
         (sink, dest_id) = self.parameterAsSink(
@@ -410,6 +417,10 @@ class GeoidBufferAlgorithm(QgsProcessingAlgorithm):
             if feedback.isCanceled():
                 break
             oldgeometry = feature.geometry()
+            distancem = self.distanceV
+            if self.dynamicDist:
+                distancem = self.distanceExp.valueAsDouble( context.expressionContext(), distancem )
+
             buffered = buffer(
                 oldgeometry,
                 distancem,
