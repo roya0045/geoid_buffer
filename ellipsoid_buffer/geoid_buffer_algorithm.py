@@ -378,11 +378,11 @@ class GeoidBufferAlgorithm(QgsProcessingAlgorithm):
 
     def prepareAlgorithm(self, parameters, context, feedback ):
 
-      self.distanceV = self.parameterAsDouble( parameters,  'DISTM' , context )
+      self.distanceV = self.parameterAsDouble( parameters, "DISTM", context )
 
-      self.dynamicDist = QgsProcessingParameters.isDynamic( parameters, QStringLiteral( 'DISTM' ) )
+      self.dynamicDist = QgsProcessingParameters.isDynamic( parameters, "DISTM" )
       if self.dynamicDist:
-        self.distanceExp = parameters.value( 'DISTM' ).value()
+        self.distanceExp = parameters["DISTM"]
 
       return (True)
 
