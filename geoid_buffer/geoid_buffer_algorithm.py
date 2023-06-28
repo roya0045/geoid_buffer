@@ -39,7 +39,7 @@ from qgis.core import (
     QgsGeometryCollection,
     QgsWkbTypes,
     QgsFeatureSink,
-    QgsProcessingParameterDistance,
+    QgsProcessingParameterNumber,
     QgsProcessingParameterEnum,
     QgsProcessingParameterBoolean,
     QgsProcessingException,
@@ -67,7 +67,9 @@ try:
         Geod,
     )  # https://pyproj4.github.io/pyproj/stable/api/geod.html#pyproj.Geod.fwd
 except:
-    raise QgsProcessingException("pyproj is not accessible, install the pyproj library via osgeo if available")
+    raise QgsProcessingException(
+        "pyproj is not accessible, install the pyproj library via osgeo if available"
+    )
 
 
 # //https://sourceforge.net/p/saga-gis/code/ci/master/tree/saga-gis/src/tools/shapes/shapes_tools/shapes_buffer.cpp
@@ -332,10 +334,19 @@ class GeoidBufferAlgorithm(QgsProcessingAlgorithm):
             )
         )
 
-        dp = QgsProcessingParameterDistance(self.DISTM,self.tr('Distance in Meter'),defaultValue=1000.0)
+        dp = QgsProcessingParameterNumber(
+            self.DISTM,
+            self.tr("Distance in Meter"),
+            QgsProcessingParameterNumber.Double,
+            defaultValue=1000.0,
+        )
         dp.setIsDynamic(True)
-        dp.setDynamicPropertyDefinition( QgsPropertyDefinition( "Distance" , self.tr( "Distance in meters" ), QgsPropertyDefinition.Integer ) )
-        dp.setDynamicLayerParameterName( "INPUT" )
+        dp.setDynamicPropertyDefinition(
+            QgsPropertyDefinition(
+                "Distance", self.tr("Distance in meters"), QgsPropertyDefinition.Integer
+            )
+        )
+        dp.setDynamicLayerParameterName("INPUT")
         self.addParameter(dp)
 
         self.addParameter(
@@ -376,15 +387,15 @@ class GeoidBufferAlgorithm(QgsProcessingAlgorithm):
             )
         )
 
-    def prepareAlgorithm(self, parameters, context, feedback ):
+    def prepareAlgorithm(self, parameters, context, feedback):
+        self.distanceV = self.parameterAsDouble(parameters, "DISTM", context)
 
-      self.distanceV = self.parameterAsDouble( parameters, "DISTM", context )
-
-      self.dynamicDist = QgsProcessingParameters.isDynamic( parameters, "DISTM" )
-      if self.dynamicDist:
-        self.distanceExp = parameters["DISTM"]
-
-      return (True)
+        self.dynamicDist = QgsProcessingParameters.isDynamic(parameters, "DISTM")
+        if self.dynamicDist:
+            self.distanceExp = parameters["DISTM"]
+        else:
+            self.distanceExp = ""
+        return True
 
     def processAlgorithm(self, parameters, context, feedback):
         source = self.parameterAsSource(parameters, self.INPUT, context)
@@ -413,21 +424,21 @@ class GeoidBufferAlgorithm(QgsProcessingAlgorithm):
             Ellipsoid = interimCrs
         else:
             Ellipsoid = currentCrs
-        expcont= self.createExpressionContext( parameters, context, source )
+        expcont = self.createExpressionContext(parameters, context, source)
 
         for current, feature in enumerate(features):
             if feedback.isCanceled():
                 break
-            if not(feature.hasGeometry()):
+            if not (feature.hasGeometry()):
                 continue
             oldgeometry = feature.geometry()
             distancem = self.distanceV
             if self.dynamicDist:
                 expcont.setFeature(feature)
-                distancem,expeval = self.distanceExp.valueAsDouble(expcont, distancem)
-                if not(expeval):
+                distancem, expeval = self.distanceExp.valueAsDouble(expcont, distancem)
+                if not (expeval):
                     feedback.pushInfo("error evaluating expression")
-                #feedback.pushInfo(str(distancem))
+                # feedback.pushInfo(str(distancem))
 
             buffered = buffer(
                 oldgeometry,
