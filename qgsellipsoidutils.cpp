@@ -386,7 +386,31 @@ geod_geodesic QgsEllipsoidUtils::getGeoidInfo( QgsCoordinateReferenceSystem crs 
     double A3x[6], C3x[15], C4x[21];
     /**< @endcond */
   };
-  
+  QStringList crsparam = crs.toProj().split(' ');
+      crsvars = dict(
+        {tuple(i[1:].split("=")) for i in crs.toProj().split(" ") if "=" in i}
+    )
+    elkwg = dict(
+        (geoparams.get(b), float(crsvars.get(b))) for b in parlist if b in crsvars
+    )
+    QMap <QSgtring, QString> projParam;
+    for stringpart in crsparam
+    {
+      keypair = stringpart.split('=');
+      if (  len(keypair)==2)
+      {
+        projParam.insert( keypair.at(0).replace('+',''), keypair.at(1));
+      }
+    }
+    if ( projParam.contains("ellps") ):
+        geodes = Geod(crsvars["ellps"])  # Geodesic.WGS84
+    elif projParam.size() == 0:
+        geodes = Geod(ellps="WGS84")
+    else:  # https://proj.org/en/9.2/usage/ellipsoids.html
+        # feedback.pushInfo(str(elkwg))
+        geodes = Geod(
+            **elkwg
+        )  # Geodesic(equatrad,flattening) #Geodesic(6378388, 1/297.0)
   double a = ;
   double f = ;
   struct geod_geodesic geodstruct;
