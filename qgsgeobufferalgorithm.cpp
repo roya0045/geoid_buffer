@@ -164,7 +164,7 @@ QgsGeometry ::buffer(
         # raise QgsProcessingException("could not transform back resulting geometry")
     return retgeom
 
-QgsGeometry ::_buffer(
+QVector<QgsGeometry> ::_buffer(
     QVector <QgsGeometry> geometry,
     double distancem,
     geoid: Geod,
@@ -185,7 +185,7 @@ QgsGeometry ::_buffer(
                 buffered_coll.append(buffered)
             return buffered_coll
 
-QgsGeometry ::_buffer(
+QVector<QgsGeometry> ::_buffer(
     QgsGeometry geometry,
     double distancem,
     geoid: Geod,
@@ -198,14 +198,22 @@ QgsGeometry ::_buffer(
     if geometry.isMultipart():
         buffered_coll = []
         for part in geometry.parts():
-            buffered = _buffer(part, distancem, geoid, flat, feedback, precision)
+  QgsGeometryPartIterator parts = geometry->parts();
+  while ( parts.hasNext() )
+  {
+    const QgsAbstractGeometry *geompart = parts.next();
+    
+            buffered = _buffer(geompart, distancem, geoid, flat, feedback, precision)
             buffered_coll.append(buffered)
         return buffered_coll
 
-    previousVertex = None
+    QgsPoint previousVertex; = None
     previousAz = None
-    buffered = list()
-    for ix, vertex in enumerate(geometry.vertices()):
+    QVector<QgsGeometry> buffered;
+      QgsVertexIterator vertexIterator = compareGeometry.vertices();
+      while ( vertexIterator.hasNext() )
+      {
+        const QgsPoint &pt = vertexIterator.next();
         # feedback.pushInfo(f" vtrx: {ix}")
         if ix == 0:
             previousVertex = vertex
@@ -221,14 +229,13 @@ QgsGeometry ::_buffer(
             precision=precision,
         )
 
-        buffered.append(newbuff)
-        previousVertex = vertex
+        buffered << newbuff;
+        previousVertex = point;
 
-    v0 = geometry.vertexAt(0)
+    QgsPoint v0 = geometry.vertexAt(0)
     if geometry.wkbType() == polyt:
         if previousVertex != v0:
-            buffered.append(
-                buff_line(
+            buffered << buff_line(
                     previousVertex, v0, distancem, geoid, feedback, precision=precision
                 )
             )
@@ -240,8 +247,7 @@ QgsGeometry ::_buffer(
     elif ix == 0:  # point
         if debug:
             feedback.pushInfo(str(v0.x()))
-        buffered = make_arc(v0, distancem, geoid, feedback, precision=precision)
-        buffered = pts2qgeom(buffered, feedback)
+        QgsGeometry buffered = pts2qgeom(make_arc(v0, distancem, geoid, feedback, precision=precision), feedback)
     else:
         buffered = unigeom(buffered)
     return buffered
