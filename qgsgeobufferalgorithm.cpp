@@ -139,7 +139,12 @@ QgsGeometry ::buffer(
         buffered = unigeom(buffered)
     geoms = list()
     # feedback.pushInfo(str(len(buffered)))
-    for buff in buffered:
+    QVector<QgsGeometry>::const_iterator buff = buffered.constBegin();
+  for ( ; buff != buffered.constEnd(); ++buff)
+  {
+    vlayer->addTopologicalPoints( *buff );
+  }
+    for  buff in buffered:
         # feedback.pushInfo(buff.asWkt())
         buff.transform(revtrsctx)
         if buff.isMultipart():
@@ -168,7 +173,11 @@ QgsGeometry ::_buffer(
     double precision,
     debug: bool = False,
 ):
-    if isinstance(geometry, list):
+       QVector<QgsGeometry>::const_iterator buff = buffered.constBegin();
+  for ( ; buff != buffered.constEnd(); ++buff)
+  {
+    vlayer->addTopologicalPoints( *buff );
+  }
         if len(geometry) > 1:
             buffered_coll = []
             for geom in geometry:
@@ -185,15 +194,6 @@ QgsGeometry ::_buffer(
     double precision,
     debug: bool = False,
 ):
-    if isinstance(geometry, list):
-        if len(geometry) > 1:
-            buffered_coll = []
-            for geom in geometry:
-                buffered = _buffer(geom, distancem, geoid, flat, feedback, precision)
-                buffered_coll.append(buffered)
-            return buffered_coll
-
-        geometry = geometry[0]
 
     if geometry.isMultipart():
         buffered_coll = []
