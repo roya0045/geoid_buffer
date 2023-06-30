@@ -344,6 +344,20 @@ QList<QgsCelestialBody> QgsEllipsoidUtils::celestialBodies()
   return QgsApplication::coordinateReferenceSystemRegistry()->celestialBodies();
 }
 
+QMap< QString, QMap< QString, double> > baseEllipsoids{
+
+  {"GRS80",QMap<QString,double>{{"a",6378137.0},{"rf",298.257222101}}},
+{"airy",QMap<QString,double>{{"a",6377563.396},{"b",6356256.910}}},
+{"bessel",QMap<QString,double>{{"a",6377397.155},{"rf",299.1528128}}},
+{"clrk66",QMap<QString,double>{{"a",6378206.4},{"b",6356583.8}}},
+{"intl",QMap<QString,double>{{"a",6378388.0},{"rf",297.}}},
+{"WGS60",QMap<QString,double>{{"a",6378165.0},{"rf",298.3}}},
+{"WGS66",QMap<QString,double>{{"a",6378145.0},{"rf",298.25}}},
+{"WGS72",QMap<QString,double>{{"a",6378135.0},{"rf",298.26}}},
+{"WGS84",QMap<QString,double>{{"a",6378137.0},{"rf",298.257223563}}},
+{"sphere",QMap<QString,double>{{"a",6370997.0},{"b",6370997.0},{"r",6370997}}},
+}
+
 void QgsEllipsoidUtils::invalidateCache( bool disableCache )
 {
   const QgsReadWriteLocker locker1( *sEllipsoidCacheLock(), QgsReadWriteLocker::Write );
