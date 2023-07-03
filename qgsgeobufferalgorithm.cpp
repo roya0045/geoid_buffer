@@ -104,47 +104,40 @@ QgsGeometry ::buffer(
 )
 {
     if distancem == 0.0:
-        return geometry
-    geoid = destCrs.toGeographicCrs()  # ellipsoidAcronym())
+        return geometry;
+    
+    QgsCoordinateReferenceSystem geoidCrs = destCrs.toGeographicCrs();
     if not (geoid.isValid):
         raise QgsProcessingException("invalid crs")
-    fwdtrsctx = QgsCoordinateTransform(srcCrs, geoid, QgsProject.instance())
-    revtrsctx = QgsCoordinateTransform(geoid, srcCrs, QgsProject.instance())
-    result = geometry.transform(fwdtrsctx)
+
+    QgsCoordinateTransform geoidTransformer = QgsCoordinateTransform(srcCrs, geoidCrs, QgsProject.instance());
+    QgsCoordinateTransform reverseTransformer = QgsCoordinateTransform(geoidCrs, srcCrs, QgsProject.instance());
+
+    result = geometry.transform(geoidTransformer)
     if !(result || geometry.isGeosValid()):
         raise QgsProcessingException("Failed to transform")
-    crsvars = dict(
-        {tuple(i[1:].split("=")) for i in destCrs.toProj().split(" ") if "=" in i}
-    )
-    elkwg = dict(
-        (geoparams.get(b), double(crsvars.get(b))) for b in parlist if b in crsvars
-    )
-    if "ellps" in crsvars:
-        geodes = Geod(crsvars["ellps"])  # Geodesic.WGS84
-    elif len(elkwg) == 0:
-        geodes = Geod(ellps="WGS84")
-    else:  # https://proj.org/en/9.2/usage/ellipsoids.html
-        # feedback.pushInfo(str(elkwg))
-        geodes = Geod(
-            **elkwg
-        )  # Geodesic(equatrad,flattening) #Geodesic(6378388, 1/297.0)
 
-    buffered = _buffer(
-        geometry.asGeometryCollection(), distancem, geodes, flatcap, feedback, precision
-    )
-    if not (isinstance(buffered, list)):
+    geod_geodesic geoid = QgsEllipsoidUtils::getGeoid( geoidCrs );
 
-        buffered.transform(revtrsctx)
-        if not (buffered.isGeosValid()):
-            buffered = buffered.makeValid()
-        return buffered
+    QVector<QgsGeometry> results = _buffer(
+        geometry.asGeometryCollection(), distancem, geoid, flatcap, feedback, precision
+    )
+    if ( results.size() == 1 )
+    {
+        QgsGeometry resultsGeometry = results.at(0);
+        bufferedGeometry.transform(reverseTransformer);
+        if not (bufferedGeometry.isGeosValid()):
+            return( bufferedGeometry.makeValid());
+        return bufferedGeometry;
+    }
     if dissolve:
-        buffered = QgsGeometry.unaryUnion(buffered)
+        buffered = QgsGeometry.unaryUnion(results)
     QVector<QgsGeometry> reprojected;
 
-    QVector<QgsGeometry>::const_iterator buff = buffered.constBegin();
-  for ( ; buff != buffered.constEnd(); ++buff)
+    QVector<QgsGeometry>::const_iterator buff = results.constBegin();
+  for ( ; buff != results.constEnd(); ++buff)
   {
+        QgsGeometry 
         buff.transform(revtrsctx)
         if buff.isMultipart():
             ok = buff.convertToSingleType()
@@ -164,95 +157,94 @@ QgsGeometry ::buffer(
 QVector<QgsGeometry> ::_buffer(
     QVector <QgsGeometry> geometries,
     double distancem,
-    geoid: Geod,
+    geod_geodesic Geod,
     flat: bool,
     QgsProcessingFeedback *feedback,
     double precision,
     debug: bool = False,
 ){
 
-    QVector<QgsGeometry> buffered;
+    QVector<QgsGeometry> results;
     QVector<QgsGeometry>::const_iterator geometry = geometries.constBegin();
     for ( ; geomery != geometries.constEnd(); ++geometry)
     {
-        buffered << _buffer(*geometry, distancem, geoid, flat, feedback, precision);
+        results << _buffer(*geometry, distancem, geoid, flat, feedback, precision);
     }
-    return buffered;
+    return results;
 
 };
 
 QVector<QgsGeometry> ::_buffer(
     QgsGeometry geometry,
     double distancem,
-    geoid: Geod,
+    geod_geodesic Geod,
     flat: bool,
     QgsProcessingFeedback *feedback,
     double precision,
     debug: bool = False,
 ){
 
-    if geometry.isMultipart():
-        buffered_coll = []
-        for part in geometry.parts():
+    if (geometry.isMultipart() )
+{        QVector<QgsGeometry> buffered;
   QgsGeometryPartIterator parts = geometry->parts();
   while ( parts.hasNext() )
   {
-    const QgsAbstractGeometry *geompart = parts.next();
-    
-            buffered = _buffer(geompart, distancem, geoid, flat, feedback, precision)
-            buffered_coll.append(buffered)
-        return buffered_coll
+    QgsGeometry *geompart = parts.next();
+    buffered << _buffer( *geompart, distancem, geoid, flat, feedback, precision);
+  }
+  return buffered;
+  }
 
-    QgsPoint previousVertex; = None
-    previousAz = None
-    QVector<QgsGeometry> buffered;
-      QgsVertexIterator vertexIterator = compareGeometry.vertices();
+
+    QgsPoint previousVertex; = None;
+    previousAz = None;
+    QVector<QgsGeometry> results;
+    QgsGeometry buffered;
+    int ix;
+
+      QgsVertexIterator vertexIterator = geometry.vertices();
       while ( vertexIterator.hasNext() )
       {
         const QgsPoint &pt = vertexIterator.next();
-        # feedback.pushInfo(f" vtrx: {ix}")
-        if ix == 0:
-            previousVertex = vertex
-            continue
-        newbuff = buff_line(
+        if (ix == 0)
+        {
+            previousVertex = vertex;buffered
+            continue;
+        }
+
+        results << buff_line(
             previousVertex,
             vertex,
             distancem,
             geoid,
-            feedback,
-            flatstart=flat and ix == 1,
-            flatend=flat,
             precision=precision,
-        )
-
-        buffered << newbuff;
+            flatstart=flat && ix == 1,
+            flatend=flat
+        );
         previousVertex = point;
+        ix ++;
+}
 
-    QgsPoint v0 = geometry.vertexAt(0)
+    QgsPoint v0 = geometry.vertexAt(0);
     if geometry.wkbType() == polyt:
-        if previousVertex != v0:
-            buffered << buff_line(
-                    previousVertex, v0, distancem, geoid, feedback, precision=precision
-                )
-            )
-        buffered = QgsGeometry.unaryUnion(buffered)
+        if !(previousVertex == v0)
+            results << buff_line(previousVertex, v0, distancem, geoid, precision);
+        buffered = QgsGeometry.unaryUnion(results);
         if distancem < 0.0:
-            buffered = geometry.difference(buffered)
+            buffered = geometry.difference(buffered);
         else:
             buffered = QgsGeometry.unaryUnion([buffered, geometry])
     elif ix == 0:  # point
-        if debug:
-            feedback.pushInfo(str(v0.x()))
-        QgsGeometry buffered = pts2qgeom(make_arc(v0, distancem, geoid, feedback, precision=precision), feedback)
+        return (pts2qgeom(make_arc(v0, distancem, geoid, precision=precision) ) );
     else:
-        buffered = QgsGeometry.unaryUnion(buffered)
+        buffered = QgsGeometry.unaryUnion(results);
     return buffered
 }
 
 
 QgsGeometry ::buff_line(
     QgsPointXY p1, QgsPointXY p2, double distance,
-    geoid: Geod,bool flatstart= False,bool flatend= False,double precision=1.0
+    geod_geodesic Geod,double precision=1.0,bool flatstart= False,bool flatend= False
 )
 {
     az = geoid.inv(p1.x(), p1.y(), p2.x(), p2.y())[0]  # ,caps=512
@@ -269,7 +261,7 @@ QgsGeometry ::buff_line(
 QVector< QgsPointXY > ::make_arc(
     srcPnt,
     distance,
-    geoid: Geod,
+    geod_geodesic Geod,
     double start = 0.0,
     double  end = 360.0,
     double precision = 1.0,

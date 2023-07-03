@@ -372,7 +372,7 @@ void QgsEllipsoidUtils::invalidateCache( bool disableCache )
   }
 }
 
-geod_geodesic QgsEllipsoidUtils::getGeoidInfo( QgsCoordinateReferenceSystem crs )
+geod_geodesic QgsEllipsoidUtils::getGeoid( QgsCoordinateReferenceSystem crs )
 {
     /**
    * The struct containing information about the ellipsoid.  This must be
@@ -421,9 +421,9 @@ geod_geodesic QgsEllipsoidUtils::getGeoidInfo( QgsCoordinateReferenceSystem crs 
   return geodstruct;
 }
 
-QgsPointXY QgsEllipsoidUtils::geoidDirectTransform( QgsCoordinateReferenceSystem crs, QgsPointXY start, double azimuth, double distance )
+QgsPointXY QgsEllipsoidUtils::geoidDirectTransform( geod_geodesic geoid, QgsPointXY start, double azimuth, double distance )
 {
-  geod_geodesic g = getGeoid(crs);
+ 
     void GEOD_DLL geod_direct(const struct geod_geodesic* g,
                             double lat1, double lon1, double azi1, double s12,
                             double* plat2, double* plon2, double* pazi2);
@@ -460,15 +460,14 @@ QgsPointXY QgsEllipsoidUtils::geoidDirectTransform( QgsCoordinateReferenceSystem
    double dist;
 
    
-   double GEOD_DLL geod_direct(&g,start.Y(), start.X(), azimuth, distance,
+   double GEOD_DLL geod_direct(&geoid,start.Y(), start.X(), azimuth, distance,
                              &pointLat, &pointLong, &dist);
    endpoint = QgsPointXY(pointLong,pointLat);
    return(endpoint)
 }
-double QgsEllipsoidUtils::geoidInverseTransform( QgsCoordinateReferenceSystem crs, QgsPointXY start, QgsPointXY end , double * azimuth)
+double QgsEllipsoidUtils::geoidInverseTransform( geod_geodesic geoid, QgsPointXY start, QgsPointXY end , double * azimuth)
 {
-  
-  geod_geodesic g = getGeoid(crs);
+
   /**
    * Solve the inverse geodesic problem.
    *
@@ -515,6 +514,6 @@ double QgsEllipsoidUtils::geoidInverseTransform( QgsCoordinateReferenceSystem cr
   double distance;
   double backAzimuth;
   
-  geod_inverse(&g,start.Y(), start.X(),end.Y().end.X(), &distance, azimuth, &backAzimuth);
+  geod_inverse(&geiod,start.Y(), start.X(),end.Y().end.X(), &distance, azimuth, &backAzimuth);
   return( distance )
 }
