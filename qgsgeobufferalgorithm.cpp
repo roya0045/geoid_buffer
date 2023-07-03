@@ -18,78 +18,70 @@
 #include "qgsalgorithmbuffer.h"
 #include "qgsvectorlayer.h"
 
-
 from qgis.PyQt.QtCore import QCoreApplication
-from qgis.core import (
-    QgsProcessing,
-    QgsCoordinateTransform,
-    QgsCoordinateReferenceSystem,
-    QgsGeometry,
-    QgsGeometryCollection,
-    QgsWkbTypes,
-    QgsFeatureSink,
-    QgsProcessingParameterNumber,
-    QgsProcessingParameterEnum,
-    QgsProcessingParameterBoolean,
-    QgsProcessingException,
-    QgsProcessingParameterCrs,
-    QgsPropertyDefinition,
-    QgsProject,
-    QgsProcessingException,
-    QgsMultiPolygon,
-    QgsProcessingAlgorithm,
-    QgsPointXY,
-    QgsPolygon,
-    QgsLineString,
-    QgsPoint,
-    QgsProcessingParameters,
-    QgsProcessingParameterFeatureSource,
-    QgsProcessingParameterNumber,
-    QgsProcessingParameterFeatureSink,
-)
-from qgis import processing
+    from qgis.core
+    import(
+        QgsProcessing,
+        QgsCoordinateTransform,
+        QgsCoordinateReferenceSystem,
+        QgsGeometry,
+        QgsGeometryCollection,
+        QgsWkbTypes,
+        QgsFeatureSink,
+        QgsProcessingParameterNumber,
+        QgsProcessingParameterEnum,
+        QgsProcessingParameterBoolean,
+        QgsProcessingException,
+        QgsProcessingParameterCrs,
+        QgsPropertyDefinition,
+        QgsProject,
+        QgsProcessingException,
+        QgsMultiPolygon,
+        QgsProcessingAlgorithm,
+        QgsPointXY,
+        QgsPolygon,
+        QgsLineString,
+        QgsPoint,
+        QgsProcessingParameters,
+        QgsProcessingParameterFeatureSource,
+        QgsProcessingParameterNumber,
+        QgsProcessingParameterFeatureSink, )
+        from qgis import processing
 
-# from geographiclib.geodesic import Geodesic
-try:
-    from pyproj import (
-        Proj,
-        Geod,
-    )  # https://pyproj4.github.io/pyproj/stable/api/geod.html#pyproj.Geod.fwd
-except:
-    raise QgsProcessingException(
-        "pyproj is not accessible, install the pyproj library via osgeo if available"
-    )
+#from geographiclib.geodesic import Geodesic
+try : from pyproj import(
+    Proj,
+    Geod, )
+#https: // pyproj4.github.io/pyproj/stable/api/geod.html#pyproj.Geod.fwd
+    except : raise QgsProcessingException(
+          "pyproj is not accessible, install the pyproj library via osgeo if available")
 
+#//https://sourceforge.net/p/saga-gis/code/ci/master/tree/saga-gis/src/tools/shapes/shapes_tools/shapes_buffer.cpp
 
-# //https://sourceforge.net/p/saga-gis/code/ci/master/tree/saga-gis/src/tools/shapes/shapes_tools/shapes_buffer.cpp
+          parlist = ["a", "b", "k"] geoparams = {"a" : "a", "b" : "b", "k" : "f" }
 
-parlist = ["a", "b", "k"]
-geoparams = {"a": "a", "b": "b", "k": "f"}
+  try : polyt
+    = Qgis.WkbType.PolygonGeomettry
+          mpolyt = Qgis.WktType.MultiPolygon
+                       except : polyt = QgsWkbTypes.Polygon
+                                            mpolyt = QgsWkbTypes.MultiPolygon
 
-try:
-    polyt = Qgis.WkbType.PolygonGeomettry
-    mpolyt = Qgis.WktType.MultiPolygon
-except:
-    polyt = QgsWkbTypes.Polygon
-    mpolyt = QgsWkbTypes.MultiPolygon
-
-
-
-QgsGeometry ::pts2qgeom(QVector< QVector< QgsPointXY > > pointLists )
-{
-    QgsMultiPolygon multipoly = QgsMultiPolygon()
-    QVector<QVector< QgsPointXY > >::const_iterator pointList = pointLists.constBegin();
-    for ( ; pointList != pointLists.constEnd(); ++pointList)
+                                                     QgsGeometry ::pts2qgeom(QVector<QVector<QgsPointXY>> pointLists)
     {
-        multipoly.addGeometry( QgsPolygon( QgsLineString( *pointList ) ) )
-    }
-    return QgsGeometry.fromWkt( multipoly.asWkt() );
-};
+      QgsMultiPolygon multipoly = QgsMultiPolygon()
+          QVector<QVector<QgsPointXY>>::const_iterator pointList = pointLists.constBegin();
+      for (; pointList != pointLists.constEnd(); ++pointList)
+      {
+        multipoly.addGeometry(QgsPolygon(QgsLineString(*pointList)))
+      }
+      return QgsGeometry.fromWkt(multipoly.asWkt());
+    };
 
-QgsGeometry ::pts2qgeom(QVector< QgsPointXY > ptslist )
-{   QgsMultiPolygon multipoly = QgsMultiPolygon();
-    multipoly.addGeometry(QgsPolygon( QgsLineString(ptslist) ) );
-    return QgsGeometry.fromWkt( multipoly.asWkt() );
+QgsGeometry ::pts2qgeom(QVector<QgsPointXY> ptslist)
+{
+  QgsMultiPolygon multipoly = QgsMultiPolygon();
+  multipoly.addGeometry(QgsPolygon(QgsLineString(ptslist)));
+  return QgsGeometry.fromWkt(multipoly.asWkt());
 };
 
 QgsGeometry ::buffer(
@@ -98,191 +90,182 @@ QgsGeometry ::buffer(
     QgsCoordinateReferenceSystem srcCrs,
     QgsCoordinateReferenceSystem destCrs,
     QgsProcessingFeedback *feedback,
-    Bool dissolve=True,
-    Bool flatcap=False,
-    double precision=1.0,
-)
+    Bool dissolve = True,
+    Bool flatcap = False,
+    double precision = 1.0, )
 {
-    if distancem == 0.0:
-        return geometry;
-    
-    QgsCoordinateReferenceSystem geoidCrs = destCrs.toGeographicCrs();
-    if not (geoid.isValid):
+  if distancem
+    == 0.0 : return geometry;
+
+  QgsCoordinateReferenceSystem geoidCrs = destCrs.toGeographicCrs();
+  if not(geoid.isValid):
         raise QgsProcessingException("invalid crs")
 
     QgsCoordinateTransform geoidTransformer = QgsCoordinateTransform(srcCrs, geoidCrs, QgsProject.instance());
-    QgsCoordinateTransform reverseTransformer = QgsCoordinateTransform(geoidCrs, srcCrs, QgsProject.instance());
+  QgsCoordinateTransform reverseTransformer = QgsCoordinateTransform(geoidCrs, srcCrs, QgsProject.instance());
 
-    result = geometry.transform(geoidTransformer)
-    if !(result || geometry.isGeosValid()):
-        raise QgsProcessingException("Failed to transform")
+  result = geometry.transform(geoidTransformer) if !(result || geometry.isGeosValid()) : raise QgsProcessingException("Failed to transform")
 
-    geod_geodesic geoid = QgsEllipsoidUtils::getGeoid( geoidCrs );
+                                                                                             geod_geodesic geoid = QgsEllipsoidUtils::getGeoid(geoidCrs);
 
-    QVector<QgsGeometry> results = _buffer(
-        geometry.asGeometryCollection(), distancem, geoid, flatcap, feedback, precision
-    )
-    if ( results.size() == 1 )
-    {
-        QgsGeometry resultsGeometry = results.at(0);
-        bufferedGeometry.transform(reverseTransformer);
-        if not (bufferedGeometry.isGeosValid()):
+  QVector<QgsGeometry> results = _buffer(
+      geometry.asGeometryCollection(), distancem, geoid, flatcap, feedback, precision) if (results.size() == 1)
+  {
+    QgsGeometry resultsGeometry = results.at(0);
+    bufferedGeometry.transform(reverseTransformer);
+    if not(bufferedGeometry.isGeosValid()):
             return( bufferedGeometry.makeValid());
-        return bufferedGeometry;
-    }
-    if dissolve:
+    return bufferedGeometry;
+  }
+  if dissolve:
         buffered = QgsGeometry.unaryUnion(results)
     QVector<QgsGeometry> reprojected;
 
-    QVector<QgsGeometry>::const_iterator buff = results.constBegin();
-  for ( ; buff != results.constEnd(); ++buff)
+  QVector<QgsGeometry>::const_iterator buff = results.constBegin();
+  for (; buff != results.constEnd(); ++buff)
   {
-        QgsGeometry 
-        buff.transform(revtrsctx)
-        if buff.isMultipart():
-            ok = buff.convertToSingleType()
+    QgsGeometry
+        buff.transform(revtrsctx) if buff.isMultipart() : ok = buff.convertToSingleType()
 
-        reprojected << buff;
+                                                                   reprojected
+                                                               << buff;
   }
 
-    retgeom = QgsGeometry.unaryUnion(geoms)
+  retgeom = QgsGeometry.unaryUnion(geoms)
 
-    if not (retgeom.isGeosValid()):
+                if not(retgeom.isGeosValid()) :
 
-        retgeom = retgeom.makeValid()
-        # raise QgsProcessingException("could not transform back resulting geometry")
-    return retgeom;
+                                                retgeom = retgeom.makeValid()
+#raise QgsProcessingException("could not transform back resulting geometry")
+                                                              return retgeom;
 }
 
-QVector<QgsGeometry> ::_buffer(
-    QVector <QgsGeometry> geometries,
+QVector<QgsGeometry>::_buffer(
+    QVector<QgsGeometry> geometries,
     double distancem,
     geod_geodesic Geod,
-    flat: bool,
-    QgsProcessingFeedback *feedback,
-    double precision,
-    debug: bool = False,
-){
+    flat
+    : bool,
+      QgsProcessingFeedback *feedback,
+      double precision,
+      debug
+    : bool = False, )
+{
 
-    QVector<QgsGeometry> results;
-    QVector<QgsGeometry>::const_iterator geometry = geometries.constBegin();
-    for ( ; geomery != geometries.constEnd(); ++geometry)
-    {
-        results << _buffer(*geometry, distancem, geoid, flat, feedback, precision);
-    }
-    return results;
-
+  QVector<QgsGeometry> results;
+  QVector<QgsGeometry>::const_iterator geometry = geometries.constBegin();
+  for (; geomery != geometries.constEnd(); ++geometry)
+  {
+    results << _buffer(*geometry, distancem, geoid, flat, feedback, precision);
+  }
+  return results;
 };
 
-QVector<QgsGeometry> ::_buffer(
+QVector<QgsGeometry>::_buffer(
     QgsGeometry geometry,
     double distancem,
     geod_geodesic Geod,
-    flat: bool,
-    QgsProcessingFeedback *feedback,
-    double precision,
-    debug: bool = False,
-){
+    flat
+    : bool,
+      QgsProcessingFeedback *feedback,
+      double precision,
+      debug
+    : bool = False, )
+{
 
-    if (geometry.isMultipart() )
-{        QVector<QgsGeometry> buffered;
-  QgsGeometryPartIterator parts = geometry->parts();
-  while ( parts.hasNext() )
+  if (geometry.isMultipart())
   {
-    QgsGeometry *geompart = parts.next();
-    buffered << _buffer( *geompart, distancem, geoid, flat, feedback, precision);
+    QVector<QgsGeometry> buffered;
+    QgsGeometryPartIterator parts = geometry->parts();
+    while (parts.hasNext())
+    {
+      QgsGeometry *geompart = parts.next();
+      buffered << _buffer(*geompart, distancem, geoid, flat, feedback, precision);
+    }
+    return buffered;
   }
-  return buffered;
+
+  QgsPoint previousVertex;
+  = None;
+  previousAz = None;
+  QVector<QgsGeometry> results;
+  QgsGeometry buffered;
+  int ix;
+
+  QgsVertexIterator vertexIterator = geometry.vertices();
+  while (vertexIterator.hasNext())
+  {
+    const QgsPoint &pt = vertexIterator.next();
+    if (ix == 0)
+    {
+      previousVertex = vertex;
+      buffered continue;
+    }
+
+    results << buff_line(
+        previousVertex,
+        vertex,
+        distancem,
+        geoid,
+        precision = precision,
+        flatstart = flat && ix == 1,
+        flatend = flat);
+    previousVertex = point;
+    ix++;
   }
 
-
-    QgsPoint previousVertex; = None;
-    previousAz = None;
-    QVector<QgsGeometry> results;
-    QgsGeometry buffered;
-    int ix;
-
-      QgsVertexIterator vertexIterator = geometry.vertices();
-      while ( vertexIterator.hasNext() )
-      {
-        const QgsPoint &pt = vertexIterator.next();
-        if (ix == 0)
-        {
-            previousVertex = vertex;buffered
-            continue;
-        }
-
-        results << buff_line(
-            previousVertex,
-            vertex,
-            distancem,
-            geoid,
-            precision=precision,
-            flatstart=flat && ix == 1,
-            flatend=flat
-        );
-        previousVertex = point;
-        ix ++;
-}
-
-    QgsPoint v0 = geometry.vertexAt(0);
-    if geometry.wkbType() == polyt:
-        if !(previousVertex == v0)
-            results << buff_line(previousVertex, v0, distancem, geoid, precision);
-        buffered = QgsGeometry.unaryUnion(results);
-        if distancem < 0.0:
-            buffered = geometry.difference(buffered);
-        else:
+  QgsPoint v0 = geometry.vertexAt(0);
+  if geometry
+    .wkbType() == polyt : if !(previousVertex == v0)
+                              results
+                          << buff_line(previousVertex, v0, distancem, geoid, precision);
+  buffered = QgsGeometry.unaryUnion(results);
+  if distancem
+    < 0.0 : buffered = geometry.difference(buffered);
+  else:
             buffered = QgsGeometry.unaryUnion([buffered, geometry])
     elif ix == 0:  # point
         return (pts2qgeom(make_arc(v0, distancem, geoid, precision=precision) ) );
-    else:
-        buffered = QgsGeometry.unaryUnion(results);
-    return buffered
+  else : buffered = QgsGeometry.unaryUnion(results);
+  return buffered
 }
-
 
 QgsGeometry ::buff_line(
     QgsPointXY p1, QgsPointXY p2, double distance,
-    geod_geodesic Geod,double precision=1.0,bool flatstart= False,bool flatend= False
-)
+    geod_geodesic Geod, double precision = 1.0, bool flatstart = False, bool flatend = False)
 {
-    az = geoid.inv(p1.x(), p1.y(), p2.x(), p2.y())[0]  # ,caps=512
-    double lim = abs((az + 90.0) % 360)
+  az = geoid.inv(p1.x(), p1.y(), p2.x(), p2.y())[0] #, caps = 512 double lim = abs((az + 90.0) % 360)
 
-    QVector< QgsPointXY >contour = make_arc(p1,distance,geoid, lim,lim + 180.0,( flatstart ) ? 180.0 : precision);
-    contour << make_arc( p2, distance, geoid, lim - 180.0, lim, ( flatend ) ? 180.0 : precision);
-    contour << contour.first();
+                                                           QVector<QgsPointXY>
+                                                               contour = make_arc(p1, distance, geoid, lim, lim + 180.0, (flatstart) ? 180.0 : precision);
+  contour << make_arc(p2, distance, geoid, lim - 180.0, lim, (flatend) ? 180.0 : precision);
+  contour << contour.first();
 
-    return pts2qgeom( contour )
+  return pts2qgeom(contour)
 }
 
-# //https://geographiclib.sourceforge.io/Python/doc/code.html#geographiclib.geodesic.Geodesic.Direct
-QVector< QgsPointXY > ::make_arc(
+#//https://geographiclib.sourceforge.io/Python/doc/code.html#geographiclib.geodesic.Geodesic.Direct
+QVector<QgsPointXY>::make_arc(
     srcPnt,
     distance,
     geod_geodesic Geod,
     double start = 0.0,
-    double  end = 360.0,
-    double precision = 1.0,
-)
+    double end = 360.0,
+    double precision = 1.0, )
 {
-    double rlong, rlat, raz;
-    double angle;
-    QVector< QgsPointXY > points;
-    int steps = std:abs(std::round((end - start) / precision));
-    int step = 0;
-    while ( step < steps ){
-            angle = (start + (step * precision)) % 360
-            rlong, rlat, raz = geoid.fwd( srcPnt.x(), srcPnt.y(), angle, distance)
-            points << QgsPointXY(rlong, rlat);
-            rlong, rlat, raz = geoid.fwd(srcPnt.x(), srcPnt.y(), end % 360.0, distance )
-            points << QgsPointXY(rlong, rlat);
-            step ++;
-    }
-    return points;
+  double rlong, rlat, raz;
+  double angle;
+  QVector<QgsPointXY> points;
+  int steps = std : abs(std::round((end - start) / precision));
+  int step = 0;
+  while (step < steps)
+  {
+    angle = (start + (step * precision)) % 360 rlong, rlat, raz = geoid.fwd(srcPnt.x(), srcPnt.y(), angle, distance) points << QgsPointXY(rlong, rlat);
+    rlong, rlat, raz = geoid.fwd(srcPnt.x(), srcPnt.y(), end % 360.0, distance) points << QgsPointXY(rlong, rlat);
+    step++;
+  }
+  return points;
 }
-
 
 class GeoidBufferAlgorithm(QgsProcessingAlgorithm):
     OUTPUT = "OUTPUT"
@@ -407,7 +390,7 @@ class GeoidBufferAlgorithm(QgsProcessingAlgorithm):
                 distancem, expeval = self.distanceExp.valueAsDouble(expcont, distancem)
                 if not (expeval):
                     feedback.pushInfo("error evaluating expression")
-                # feedback.pushInfo(str(distancem))
+#feedback.pushInfo(str(distancem))
 
             buffered = buffer(
                 oldgeometry,
@@ -433,62 +416,62 @@ class GeoidBufferAlgorithm(QgsProcessingAlgorithm):
 
 QString QgsBufferAlgorithm::name() const
 {
-  return QStringLiteral( "geoidbuffer" );
+  return QStringLiteral("geoidbuffer");
 }
 
 QString QgsBufferAlgorithm::displayName() const
 {
-  return QObject::tr( "Geoid Buffer" );
+  return QObject::tr("Geoid Buffer");
 }
 
 QStringList QgsBufferAlgorithm::tags() const
 {
-  return QObject::tr( "buffer,grow,fixed,variable,distance" ).split( ',' );
+  return QObject::tr("buffer,grow,fixed,variable,distance").split(',');
 }
 
 QString QgsBufferAlgorithm::group() const
 {
-  return QObject::tr( "Vector geometry" );
+  return QObject::tr("Vector geometry");
 }
 
 QString QgsBufferAlgorithm::groupId() const
 {
-  return QStringLiteral( "vectorgeometry" );
+  return QStringLiteral("vectorgeometry");
 }
 
-void QgsBufferAlgorithm::initAlgorithm( const QVariantMap & )
+void QgsBufferAlgorithm::initAlgorithm(const QVariantMap &)
 {
-  addParameter( new QgsProcessingParameterFeatureSource( QStringLiteral( "INPUT" ), QObject::tr( "Input layer" ) ) );
+  addParameter(new QgsProcessingParameterFeatureSource(QStringLiteral("INPUT"), QObject::tr("Input layer")));
 
-  auto bufferParam = std::make_unique < QgsProcessingParameterDistance >( QStringLiteral( "DISTANCE" ), QObject::tr( "Distance" ), 10, QStringLiteral( "INPUT" ) );
-  bufferParam->setIsDynamic( true );
-  bufferParam->setDynamicPropertyDefinition( QgsPropertyDefinition( QStringLiteral( "Distance" ), QObject::tr( "Buffer distance" ), QgsPropertyDefinition::Double ) );
-  bufferParam->setDynamicLayerParameterName( QStringLiteral( "INPUT" ) );
-  addParameter( bufferParam.release() );
-  auto segmentParam = std::make_unique < QgsProcessingParameterNumber >( QStringLiteral( "SEGMENTS" ), QObject::tr( "Segments" ), QgsProcessingParameterNumber::Integer, 5, false, 1 );
-  segmentParam->setHelp( QObject::tr( "The segments parameter controls the number of line segments to use to approximate a quarter circle when creating rounded offsets." ) );
-  addParameter( segmentParam.release() );
-  addParameter( new QgsProcessingParameterEnum( QStringLiteral( "END_CAP_STYLE" ), QObject::tr( "End cap style" ), QStringList() << QObject::tr( "Round" ) << QObject::tr( "Flat" ) << QObject::tr( "Square" ), false, 0 ) );
-  addParameter( new QgsProcessingParameterEnum( QStringLiteral( "JOIN_STYLE" ), QObject::tr( "Join style" ), QStringList() << QObject::tr( "Round" ) << QObject::tr( "Miter" ) << QObject::tr( "Bevel" ), false, 0 ) );
-  addParameter( new QgsProcessingParameterNumber( QStringLiteral( "MITER_LIMIT" ), QObject::tr( "Miter limit" ), QgsProcessingParameterNumber::Double, 2, false, 1 ) );
+  auto bufferParam = std::make_unique<QgsProcessingParameterDistance>(QStringLiteral("DISTANCE"), QObject::tr("Distance"), 10, QStringLiteral("INPUT"));
+  bufferParam->setIsDynamic(true);
+  bufferParam->setDynamicPropertyDefinition(QgsPropertyDefinition(QStringLiteral("Distance"), QObject::tr("Buffer distance"), QgsPropertyDefinition::Double));
+  bufferParam->setDynamicLayerParameterName(QStringLiteral("INPUT"));
+  addParameter(bufferParam.release());
+  auto segmentParam = std::make_unique<QgsProcessingParameterNumber>(QStringLiteral("SEGMENTS"), QObject::tr("Segments"), QgsProcessingParameterNumber::Integer, 5, false, 1);
+  segmentParam->setHelp(QObject::tr("The segments parameter controls the number of line segments to use to approximate a quarter circle when creating rounded offsets."));
+  addParameter(segmentParam.release());
+  addParameter(new QgsProcessingParameterEnum(QStringLiteral("END_CAP_STYLE"), QObject::tr("End cap style"), QStringList() << QObject::tr("Round") << QObject::tr("Flat") << QObject::tr("Square"), false, 0));
+  addParameter(new QgsProcessingParameterEnum(QStringLiteral("JOIN_STYLE"), QObject::tr("Join style"), QStringList() << QObject::tr("Round") << QObject::tr("Miter") << QObject::tr("Bevel"), false, 0));
+  addParameter(new QgsProcessingParameterNumber(QStringLiteral("MITER_LIMIT"), QObject::tr("Miter limit"), QgsProcessingParameterNumber::Double, 2, false, 1));
 
-  addParameter( new QgsProcessingParameterBoolean( QStringLiteral( "DISSOLVE" ), QObject::tr( "Dissolve result" ), false ) );
+  addParameter(new QgsProcessingParameterBoolean(QStringLiteral("DISSOLVE"), QObject::tr("Dissolve result"), false));
 
-  auto keepDisjointParam = std::make_unique < QgsProcessingParameterBoolean >( QStringLiteral( "SEPARATE_DISJOINT" ), QObject::tr( "Keep disjoint results separate" ), false );
-  keepDisjointParam->setFlags( keepDisjointParam->flags() | QgsProcessingParameterDefinition::FlagAdvanced );
-  keepDisjointParam->setHelp( QObject::tr( "If checked, then any disjoint parts in the buffer results will be output as separate single-part features." ) );
-  addParameter( keepDisjointParam.release() );
+  auto keepDisjointParam = std::make_unique<QgsProcessingParameterBoolean>(QStringLiteral("SEPARATE_DISJOINT"), QObject::tr("Keep disjoint results separate"), false);
+  keepDisjointParam->setFlags(keepDisjointParam->flags() | QgsProcessingParameterDefinition::FlagAdvanced);
+  keepDisjointParam->setHelp(QObject::tr("If checked, then any disjoint parts in the buffer results will be output as separate single-part features."));
+  addParameter(keepDisjointParam.release());
 
-  addParameter( new QgsProcessingParameterFeatureSink( QStringLiteral( "OUTPUT" ), QObject::tr( "Buffered" ), QgsProcessing::TypeVectorPolygon, QVariant(), false, true, true ) );
+  addParameter(new QgsProcessingParameterFeatureSink(QStringLiteral("OUTPUT"), QObject::tr("Buffered"), QgsProcessing::TypeVectorPolygon, QVariant(), false, true, true));
 }
 
 QString QgsBufferAlgorithm::shortHelpString() const
 {
-  return QObject::tr( "This algorithm computes a buffer area for all the features in an input layer, using a fixed or dynamic distance.\n\n"
-                      "The segments parameter controls the number of line segments to use to approximate a quarter circle when creating rounded offsets.\n\n"
-                      "The end cap style parameter controls how line endings are handled in the buffer.\n\n"
-                      "The join style parameter specifies whether round, miter or beveled joins should be used when offsetting corners in a line.\n\n"
-                      "The miter limit parameter is only applicable for miter join styles, and controls the maximum distance from the offset curve to use when creating a mitered join." );
+  return QObject::tr("This algorithm computes a buffer area for all the features in an input layer, using a fixed or dynamic distance.\n\n"
+                     "The segments parameter controls the number of line segments to use to approximate a quarter circle when creating rounded offsets.\n\n"
+                     "The end cap style parameter controls how line endings are handled in the buffer.\n\n"
+                     "The join style parameter specifies whether round, miter or beveled joins should be used when offsetting corners in a line.\n\n"
+                     "The miter limit parameter is only applicable for miter join styles, and controls the maximum distance from the offset curve to use when creating a mitered join.");
 }
 
 QgsBufferAlgorithm *QgsBufferAlgorithm::createInstance() const
@@ -496,70 +479,70 @@ QgsBufferAlgorithm *QgsBufferAlgorithm::createInstance() const
   return new QgsBufferAlgorithm();
 }
 
-QVariantMap QgsBufferAlgorithm::processAlgorithm( const QVariantMap &parameters, QgsProcessingContext &context, QgsProcessingFeedback *feedback )
+QVariantMap QgsBufferAlgorithm::processAlgorithm(const QVariantMap &parameters, QgsProcessingContext &context, QgsProcessingFeedback *feedback)
 {
-  std::unique_ptr< QgsProcessingFeatureSource > source( parameterAsSource( parameters, QStringLiteral( "INPUT" ), context ) );
-  if ( !source )
-    throw QgsProcessingException( invalidSourceError( parameters, QStringLiteral( "INPUT" ) ) );
+  std::unique_ptr<QgsProcessingFeatureSource> source(parameterAsSource(parameters, QStringLiteral("INPUT"), context));
+  if (!source)
+    throw QgsProcessingException(invalidSourceError(parameters, QStringLiteral("INPUT")));
 
   QString dest;
-  std::unique_ptr< QgsFeatureSink > sink( parameterAsSink( parameters, QStringLiteral( "OUTPUT" ), context, dest, source->fields(), Qgis::WkbType::MultiPolygon, source->sourceCrs() ) );
-  if ( !sink )
-    throw QgsProcessingException( invalidSinkError( parameters, QStringLiteral( "OUTPUT" ) ) );
+  std::unique_ptr<QgsFeatureSink> sink(parameterAsSink(parameters, QStringLiteral("OUTPUT"), context, dest, source->fields(), Qgis::WkbType::MultiPolygon, source->sourceCrs()));
+  if (!sink)
+    throw QgsProcessingException(invalidSinkError(parameters, QStringLiteral("OUTPUT")));
 
   // fixed parameters
-  const bool dissolve = parameterAsBoolean( parameters, QStringLiteral( "DISSOLVE" ), context );
-  const bool keepDisjointSeparate = parameterAsBoolean( parameters, QStringLiteral( "SEPARATE_DISJOINT" ), context );
-  const int segments = parameterAsInt( parameters, QStringLiteral( "SEGMENTS" ), context );
-  const Qgis::EndCapStyle endCapStyle = static_cast< Qgis::EndCapStyle >( 1 + parameterAsInt( parameters, QStringLiteral( "END_CAP_STYLE" ), context ) );
-  const Qgis::JoinStyle joinStyle = static_cast< Qgis::JoinStyle>( 1 + parameterAsInt( parameters, QStringLiteral( "JOIN_STYLE" ), context ) );
-  const double miterLimit = parameterAsDouble( parameters, QStringLiteral( "MITER_LIMIT" ), context );
-  const double bufferDistance = parameterAsDouble( parameters, QStringLiteral( "DISTANCE" ), context );
-  const bool dynamicBuffer = QgsProcessingParameters::isDynamic( parameters, QStringLiteral( "DISTANCE" ) );
-  QgsExpressionContext expressionContext = createExpressionContext( parameters, context, source.get() );
+  const bool dissolve = parameterAsBoolean(parameters, QStringLiteral("DISSOLVE"), context);
+  const bool keepDisjointSeparate = parameterAsBoolean(parameters, QStringLiteral("SEPARATE_DISJOINT"), context);
+  const int segments = parameterAsInt(parameters, QStringLiteral("SEGMENTS"), context);
+  const Qgis::EndCapStyle endCapStyle = static_cast<Qgis::EndCapStyle>(1 + parameterAsInt(parameters, QStringLiteral("END_CAP_STYLE"), context));
+  const Qgis::JoinStyle joinStyle = static_cast<Qgis::JoinStyle>(1 + parameterAsInt(parameters, QStringLiteral("JOIN_STYLE"), context));
+  const double miterLimit = parameterAsDouble(parameters, QStringLiteral("MITER_LIMIT"), context);
+  const double bufferDistance = parameterAsDouble(parameters, QStringLiteral("DISTANCE"), context);
+  const bool dynamicBuffer = QgsProcessingParameters::isDynamic(parameters, QStringLiteral("DISTANCE"));
+  QgsExpressionContext expressionContext = createExpressionContext(parameters, context, source.get());
   QgsProperty bufferProperty;
-  if ( dynamicBuffer )
+  if (dynamicBuffer)
   {
-    bufferProperty = parameters.value( QStringLiteral( "DISTANCE" ) ).value< QgsProperty >();
+    bufferProperty = parameters.value(QStringLiteral("DISTANCE")).value<QgsProperty>();
   }
 
   const long count = source->featureCount();
 
   QgsFeature f;
   // buffer doesn't care about invalid features, and buffering can be used to repair geometries
-  QgsFeatureIterator it = source->getFeatures( QgsFeatureRequest(), QgsProcessingFeatureSource::FlagSkipGeometryValidityChecks );
+  QgsFeatureIterator it = source->getFeatures(QgsFeatureRequest(), QgsProcessingFeatureSource::FlagSkipGeometryValidityChecks);
 
   const double step = count > 0 ? 100.0 / count : 1;
   int current = 0;
 
-  QVector< QgsGeometry > bufferedGeometriesForDissolve;
+  QVector<QgsGeometry> bufferedGeometriesForDissolve;
   QgsAttributes dissolveAttrs;
 
-  while ( it.nextFeature( f ) )
+  while (it.nextFeature(f))
   {
-    if ( feedback->isCanceled() )
+    if (feedback->isCanceled())
     {
       break;
     }
-    if ( dissolveAttrs.isEmpty() )
+    if (dissolveAttrs.isEmpty())
       dissolveAttrs = f.attributes();
 
     QgsFeature out = f;
-    if ( out.hasGeometry() )
+    if (out.hasGeometry())
     {
-      double distance =  bufferDistance;
-      if ( dynamicBuffer )
+      double distance = bufferDistance;
+      if (dynamicBuffer)
       {
-        expressionContext.setFeature( f );
-        distance = bufferProperty.valueAsDouble( expressionContext, bufferDistance );
+        expressionContext.setFeature(f);
+        distance = bufferProperty.valueAsDouble(expressionContext, bufferDistance);
       }
 
-      QgsGeometry outputGeometry = f.geometry().buffer( distance, segments, endCapStyle, joinStyle, miterLimit );
-      if ( outputGeometry.isNull() )
+      QgsGeometry outputGeometry = f.geometry().buffer(distance, segments, endCapStyle, joinStyle, miterLimit);
+      if (outputGeometry.isNull())
       {
-        QgsMessageLog::logMessage( QObject::tr( "Error calculating buffer for feature %1" ).arg( f.id() ), QObject::tr( "Processing" ), Qgis::MessageLevel::Warning );
+        QgsMessageLog::logMessage(QObject::tr("Error calculating buffer for feature %1").arg(f.id()), QObject::tr("Processing"), Qgis::MessageLevel::Warning);
       }
-      if ( dissolve )
+      if (dissolve)
       {
         bufferedGeometriesForDissolve << outputGeometry;
       }
@@ -567,66 +550,66 @@ QVariantMap QgsBufferAlgorithm::processAlgorithm( const QVariantMap &parameters,
       {
         outputGeometry.convertToMultiType();
 
-        if ( !keepDisjointSeparate )
+        if (!keepDisjointSeparate)
         {
-          out.setGeometry( outputGeometry );
+          out.setGeometry(outputGeometry);
 
-          if ( !sink->addFeature( out, QgsFeatureSink::FastInsert ) )
-            throw QgsProcessingException( writeFeatureError( sink.get(), parameters, QStringLiteral( "OUTPUT" ) ) );
+          if (!sink->addFeature(out, QgsFeatureSink::FastInsert))
+            throw QgsProcessingException(writeFeatureError(sink.get(), parameters, QStringLiteral("OUTPUT")));
         }
         else
         {
-          for ( auto partIt = outputGeometry.const_parts_begin(); partIt != outputGeometry.const_parts_end(); ++partIt )
+          for (auto partIt = outputGeometry.const_parts_begin(); partIt != outputGeometry.const_parts_end(); ++partIt)
           {
-            if ( const QgsAbstractGeometry *part = *partIt )
+            if (const QgsAbstractGeometry *part = *partIt)
             {
-              out.setGeometry( QgsGeometry( part->clone() ) );
-              if ( !sink->addFeature( out, QgsFeatureSink::FastInsert ) )
-                throw QgsProcessingException( writeFeatureError( sink.get(), parameters, QStringLiteral( "OUTPUT" ) ) );
+              out.setGeometry(QgsGeometry(part->clone()));
+              if (!sink->addFeature(out, QgsFeatureSink::FastInsert))
+                throw QgsProcessingException(writeFeatureError(sink.get(), parameters, QStringLiteral("OUTPUT")));
             }
           }
         }
       }
     }
-    else if ( !dissolve )
+    else if (!dissolve)
     {
-      if ( !sink->addFeature( out, QgsFeatureSink::FastInsert ) )
-        throw QgsProcessingException( writeFeatureError( sink.get(), parameters, QStringLiteral( "OUTPUT" ) ) );
+      if (!sink->addFeature(out, QgsFeatureSink::FastInsert))
+        throw QgsProcessingException(writeFeatureError(sink.get(), parameters, QStringLiteral("OUTPUT")));
     }
 
-    feedback->setProgress( current * step );
+    feedback->setProgress(current * step);
     current++;
   }
 
-  if ( dissolve && !bufferedGeometriesForDissolve.isEmpty() )
+  if (dissolve && !bufferedGeometriesForDissolve.isEmpty())
   {
-    QgsGeometry finalGeometry = QgsGeometry::unaryUnion( bufferedGeometriesForDissolve );
+    QgsGeometry finalGeometry = QgsGeometry::unaryUnion(bufferedGeometriesForDissolve);
     finalGeometry.convertToMultiType();
     QgsFeature f;
-    f.setAttributes( dissolveAttrs );
+    f.setAttributes(dissolveAttrs);
 
-    if ( !keepDisjointSeparate )
+    if (!keepDisjointSeparate)
     {
-      f.setGeometry( finalGeometry );
-      if ( !sink->addFeature( f, QgsFeatureSink::FastInsert ) )
-        throw QgsProcessingException( writeFeatureError( sink.get(), parameters, QStringLiteral( "OUTPUT" ) ) );
+      f.setGeometry(finalGeometry);
+      if (!sink->addFeature(f, QgsFeatureSink::FastInsert))
+        throw QgsProcessingException(writeFeatureError(sink.get(), parameters, QStringLiteral("OUTPUT")));
     }
     else
     {
-      for ( auto partIt = finalGeometry.const_parts_begin(); partIt != finalGeometry.const_parts_end(); ++partIt )
+      for (auto partIt = finalGeometry.const_parts_begin(); partIt != finalGeometry.const_parts_end(); ++partIt)
       {
-        if ( const QgsAbstractGeometry *part = *partIt )
+        if (const QgsAbstractGeometry *part = *partIt)
         {
-          f.setGeometry( QgsGeometry( part->clone() ) );
-          if ( !sink->addFeature( f, QgsFeatureSink::FastInsert ) )
-            throw QgsProcessingException( writeFeatureError( sink.get(), parameters, QStringLiteral( "OUTPUT" ) ) );
+          f.setGeometry(QgsGeometry(part->clone()));
+          if (!sink->addFeature(f, QgsFeatureSink::FastInsert))
+            throw QgsProcessingException(writeFeatureError(sink.get(), parameters, QStringLiteral("OUTPUT")));
         }
       }
     }
   }
 
   QVariantMap outputs;
-  outputs.insert( QStringLiteral( "OUTPUT" ), dest );
+  outputs.insert(QStringLiteral("OUTPUT"), dest);
   return outputs;
 }
 
@@ -637,16 +620,16 @@ QgsProcessingAlgorithm::Flags QgsBufferAlgorithm::flags() const
   return f;
 }
 
-QgsProcessingAlgorithm::VectorProperties QgsBufferAlgorithm::sinkProperties( const QString &sink, const QVariantMap &parameters, QgsProcessingContext &context, const QMap<QString, QgsProcessingAlgorithm::VectorProperties> &sourceProperties ) const
+QgsProcessingAlgorithm::VectorProperties QgsBufferAlgorithm::sinkProperties(const QString &sink, const QVariantMap &parameters, QgsProcessingContext &context, const QMap<QString, QgsProcessingAlgorithm::VectorProperties> &sourceProperties) const
 {
-  const bool keepDisjointSeparate = parameterAsBoolean( parameters, QStringLiteral( "SEPARATE_DISJOINT" ), context );
+  const bool keepDisjointSeparate = parameterAsBoolean(parameters, QStringLiteral("SEPARATE_DISJOINT"), context);
 
   QgsProcessingAlgorithm::VectorProperties result;
-  if ( sink == QLatin1String( "OUTPUT" ) )
+  if (sink == QLatin1String("OUTPUT"))
   {
-    if ( sourceProperties.value( QStringLiteral( "INPUT" ) ).availability == QgsProcessingAlgorithm::Available )
+    if (sourceProperties.value(QStringLiteral("INPUT")).availability == QgsProcessingAlgorithm::Available)
     {
-      const VectorProperties inputProps = sourceProperties.value( QStringLiteral( "INPUT" ) );
+      const VectorProperties inputProps = sourceProperties.value(QStringLiteral("INPUT"));
       result.fields = inputProps.fields;
       result.crs = inputProps.crs;
       result.wkbType = keepDisjointSeparate ? Qgis::WkbType::Polygon : Qgis::WkbType::MultiPolygon;
@@ -655,8 +638,8 @@ QgsProcessingAlgorithm::VectorProperties QgsBufferAlgorithm::sinkProperties( con
     }
     else
     {
-      std::unique_ptr< QgsProcessingFeatureSource > source( parameterAsSource( parameters, QStringLiteral( "INPUT" ), context ) );
-      if ( source )
+      std::unique_ptr<QgsProcessingFeatureSource> source(parameterAsSource(parameters, QStringLiteral("INPUT"), context));
+      if (source)
       {
         result.fields = source->fields();
         result.crs = source->sourceCrs();
@@ -669,12 +652,12 @@ QgsProcessingAlgorithm::VectorProperties QgsBufferAlgorithm::sinkProperties( con
   return result;
 }
 
-bool QgsBufferAlgorithm::supportInPlaceEdit( const QgsMapLayer *layer ) const
+bool QgsBufferAlgorithm::supportInPlaceEdit(const QgsMapLayer *layer) const
 {
-  const QgsVectorLayer *vlayer = qobject_cast< const QgsVectorLayer * >( layer );
-  if ( !vlayer )
+  const QgsVectorLayer *vlayer = qobject_cast<const QgsVectorLayer *>(layer);
+  if (!vlayer)
     return false;
-  //Only Polygons
+  // Only Polygons
   return vlayer->wkbType() == Qgis::WkbType::Polygon || vlayer->wkbType() == Qgis::WkbType::MultiPolygon;
 }
 
