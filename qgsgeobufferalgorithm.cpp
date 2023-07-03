@@ -89,7 +89,7 @@ QgsGeometry ::buffer(
   if not(geoid.isValid):
         raise QgsProcessingException("invalid crs")
 
-    QgsCoordinateTransform geoidTransformer = QgsCoordinateTransform(srcCrs, geoidCrs, QgsProject.instance());
+  QgsCoordinateTransform geoidTransformer = QgsCoordinateTransform(srcCrs, geoidCrs, QgsProject.instance());
   QgsCoordinateTransform reverseTransformer = QgsCoordinateTransform(geoidCrs, srcCrs, QgsProject.instance());
 
   result = geometry.transform(geoidTransformer);
@@ -190,7 +190,7 @@ QVector<QgsGeometry>::_buffer(
   }
 
   QgsPoint v0 = geometry.vertexAt(0);
-  if (geometry.wkbType() == polyt)
+  if (geometry.wkbType() == Qgis.WkbType.PolygonGeomettry)
   {
     if !(previousVertex == v0)
       results << buff_line(previousVertex, v0, distancem, geoid, precision);
@@ -201,7 +201,7 @@ QVector<QgsGeometry>::_buffer(
       buffered = QgsGeometry.unaryUnion([buffered, geometry]);
   }
   else if (ix == 0)
-    return (pts2qgeom(make_arc(v0, distancem, geoid, precision = precision)));
+    return pts2qgeom(make_arc(v0, distancem, geoid, precision = precision));
   else
     buffered = QgsGeometry.unaryUnion(results);
   return buffered;
@@ -213,7 +213,7 @@ QgsGeometry ::buff_line(
 {
   double az;
   QgsEllipsoidUtils::geoidInverseTransform(Geod, p1, p2, &az);
-  double lim = std::abs((az + 90.0) % 360);
+  double lim = std::abs((az + 90.0) % 360.0);
 
   QVector<QgsPointXY> contour = make_arc(p1, distance, Geod, lim, lim + 180.0, (flatstart) ? 180.0 : precision);
   contour << make_arc(p2, distance, Geod, lim - 180.0, lim, (flatend) ? 180.0 : precision);
