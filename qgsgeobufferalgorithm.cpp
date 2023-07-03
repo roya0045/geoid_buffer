@@ -20,62 +20,50 @@
 
 from qgis.PyQt.QtCore import QCoreApplication
     from qgis.core
-    import(
-        QgsProcessing,
-        QgsCoordinateTransform,
-        QgsCoordinateReferenceSystem,
-        QgsGeometry,
-        QgsGeometryCollection,
-        QgsWkbTypes,
-        QgsFeatureSink,
-        QgsProcessingParameterNumber,
-        QgsProcessingParameterEnum,
-        QgsProcessingParameterBoolean,
-        QgsProcessingException,
-        QgsProcessingParameterCrs,
-        QgsPropertyDefinition,
-        QgsProject,
-        QgsProcessingException,
-        QgsMultiPolygon,
-        QgsProcessingAlgorithm,
-        QgsPointXY,
-        QgsPolygon,
-        QgsLineString,
-        QgsPoint,
-        QgsProcessingParameters,
-        QgsProcessingParameterFeatureSource,
-        QgsProcessingParameterNumber,
-        QgsProcessingParameterFeatureSink, )
-        from qgis import processing
-
-#from geographiclib.geodesic import Geodesic
-try : from pyproj import(
-    Proj,
-    Geod, )
-#https: // pyproj4.github.io/pyproj/stable/api/geod.html#pyproj.Geod.fwd
-    except : raise QgsProcessingException(
-          "pyproj is not accessible, install the pyproj library via osgeo if available")
+        import(
+            QgsProcessing,
+            QgsCoordinateTransform,
+            QgsCoordinateReferenceSystem,
+            QgsEllipsoidUtils,
+            QgsGeometry,
+            QgsGeometryCollection,
+            QgsWkbTypes,
+            QgsFeatureSink,
+            QgsProcessingParameterNumber,
+            QgsProcessingParameterEnum,
+            QgsProcessingParameterBoolean,
+            QgsProcessingException,
+            QgsProcessingParameterCrs,
+            QgsPropertyDefinition,
+            QgsProject,
+            QgsProcessingException,
+            QgsMultiPolygon,
+            QgsProcessingAlgorithm,
+            QgsPointXY,
+            QgsPolygon,
+            QgsLineString,
+            QgsPoint,
+            QgsProcessingParameters,
+            QgsProcessingParameterFeatureSource,
+            QgsProcessingParameterNumber,
+            QgsProcessingParameterFeatureSink, )
+            from qgis import processing
 
 #//https://sourceforge.net/p/saga-gis/code/ci/master/tree/saga-gis/src/tools/shapes/shapes_tools/shapes_buffer.cpp
 
-          parlist = ["a", "b", "k"] geoparams = {"a" : "a", "b" : "b", "k" : "f" }
+    polyt = Qgis.WkbType.PolygonGeomettry;
+mpolyt = Qgis.WktType.MultiPolygon;
 
-  try : polyt
-    = Qgis.WkbType.PolygonGeomettry
-          mpolyt = Qgis.WktType.MultiPolygon
-                       except : polyt = QgsWkbTypes.Polygon
-                                            mpolyt = QgsWkbTypes.MultiPolygon
-
-                                                     QgsGeometry ::pts2qgeom(QVector<QVector<QgsPointXY>> pointLists)
-    {
-      QgsMultiPolygon multipoly = QgsMultiPolygon()
-          QVector<QVector<QgsPointXY>>::const_iterator pointList = pointLists.constBegin();
-      for (; pointList != pointLists.constEnd(); ++pointList)
-      {
-        multipoly.addGeometry(QgsPolygon(QgsLineString(*pointList)))
-      }
-      return QgsGeometry.fromWkt(multipoly.asWkt());
-    };
+QgsGeometry ::pts2qgeom(QVector<QVector<QgsPointXY>> pointLists)
+{
+  QgsMultiPolygon multipoly = QgsMultiPolygon()
+      QVector<QVector<QgsPointXY>>::const_iterator pointList = pointLists.constBegin();
+  for (; pointList != pointLists.constEnd(); ++pointList)
+  {
+    multipoly.addGeometry(QgsPolygon(QgsLineString(*pointList)))
+  }
+  return QgsGeometry.fromWkt(multipoly.asWkt());
+};
 
 QgsGeometry ::pts2qgeom(QVector<QgsPointXY> ptslist)
 {
@@ -104,12 +92,14 @@ QgsGeometry ::buffer(
     QgsCoordinateTransform geoidTransformer = QgsCoordinateTransform(srcCrs, geoidCrs, QgsProject.instance());
   QgsCoordinateTransform reverseTransformer = QgsCoordinateTransform(geoidCrs, srcCrs, QgsProject.instance());
 
-  result = geometry.transform(geoidTransformer) if !(result || geometry.isGeosValid()) : raise QgsProcessingException("Failed to transform")
+  result = geometry.transform(geoidTransformer);
+  if !(result || geometry.isGeosValid()) : 
+   raise QgsProcessingException("Failed to transform");
 
-                                                                                             geod_geodesic geoid = QgsEllipsoidUtils::getGeoid(geoidCrs);
+  geod_geodesic geoid = QgsEllipsoidUtils::getGeoid(geoidCrs);
 
-  QVector<QgsGeometry> results = _buffer(
-      geometry.asGeometryCollection(), distancem, geoid, flatcap, feedback, precision) if (results.size() == 1)
+  QVector<QgsGeometry> results = _buffer(geometry.asGeometryCollection(), distancem, geoid, flatcap, feedback, precision);
+  if (results.size() == 1)
   {
     QgsGeometry resultsGeometry = results.at(0);
     bufferedGeometry.transform(reverseTransformer);
@@ -117,39 +107,36 @@ QgsGeometry ::buffer(
             return( bufferedGeometry.makeValid());
     return bufferedGeometry;
   }
-  if dissolve:
-        buffered = QgsGeometry.unaryUnion(results)
-    QVector<QgsGeometry> reprojected;
+  if (dissolve)
+    buffered = QgsGeometry.unaryUnion(results);
+  QVector<QgsGeometry> reprojected;
 
   QVector<QgsGeometry>::const_iterator buff = results.constBegin();
   for (; buff != results.constEnd(); ++buff)
   {
-    QgsGeometry
-        buff.transform(revtrsctx) if buff.isMultipart() : ok = buff.convertToSingleType()
+    QgsGeometry earthBuffer = *buff;
+    earthBuffer.transform(reverseTransformer);
+    if (buff.isMultipart())
+      earthBuffer.convertToSingleType();
 
-                                                                   reprojected
-                                                               << buff;
+    reprojected << earthBuffer;
   }
 
-  retgeom = QgsGeometry.unaryUnion(geoms)
+  retgeom = QgsGeometry.unaryUnion(geoms);
 
-                if not(retgeom.isGeosValid()) :
+  if not(retgeom.isGeosValid())
+    retgeom = retgeom.makeValid()
 
-                                                retgeom = retgeom.makeValid()
-#raise QgsProcessingException("could not transform back resulting geometry")
-                                                              return retgeom;
+                  return retgeom;
 }
 
 QVector<QgsGeometry>::_buffer(
     QVector<QgsGeometry> geometries,
     double distancem,
     geod_geodesic Geod,
-    flat
-    : bool,
-      QgsProcessingFeedback *feedback,
-      double precision,
-      debug
-    : bool = False, )
+    bool flat,
+    QgsProcessingFeedback *feedback,
+    double precision)
 {
 
   QVector<QgsGeometry> results;
@@ -165,12 +152,9 @@ QVector<QgsGeometry>::_buffer(
     QgsGeometry geometry,
     double distancem,
     geod_geodesic Geod,
-    flat
-    : bool,
-      QgsProcessingFeedback *feedback,
-      double precision,
-      debug
-    : bool = False, )
+    bool flat
+        QgsProcessingFeedback *feedback,
+    double precision)
 {
 
   if (geometry.isMultipart())
@@ -186,8 +170,6 @@ QVector<QgsGeometry>::_buffer(
   }
 
   QgsPoint previousVertex;
-  = None;
-  previousAz = None;
   QVector<QgsGeometry> results;
   QgsGeometry buffered;
   int ix;
@@ -202,43 +184,39 @@ QVector<QgsGeometry>::_buffer(
       buffered continue;
     }
 
-    results << buff_line(
-        previousVertex,
-        vertex,
-        distancem,
-        geoid,
-        precision = precision,
-        flatstart = flat && ix == 1,
-        flatend = flat);
+    results << buff_line(previousVertex, vertex, distancem, geoid, precision = precision, flatstart = flat && ix == 1, flat);
     previousVertex = point;
     ix++;
   }
 
   QgsPoint v0 = geometry.vertexAt(0);
-  if geometry
-    .wkbType() == polyt : if !(previousVertex == v0)
-                              results
-                          << buff_line(previousVertex, v0, distancem, geoid, precision);
-  buffered = QgsGeometry.unaryUnion(results);
-  if distancem
-    < 0.0 : buffered = geometry.difference(buffered);
-  else:
-            buffered = QgsGeometry.unaryUnion([buffered, geometry])
-    elif ix == 0:  # point
-        return (pts2qgeom(make_arc(v0, distancem, geoid, precision=precision) ) );
-  else : buffered = QgsGeometry.unaryUnion(results);
-  return buffered
+  if (geometry.wkbType() == polyt)
+  {
+    if !(previousVertex == v0)
+      results << buff_line(previousVertex, v0, distancem, geoid, precision);
+    buffered = QgsGeometry.unaryUnion(results);
+    if (distancem < 0.0)
+      buffered = geometry.difference(buffered);
+    else:
+      buffered = QgsGeometry.unaryUnion([buffered, geometry]);
+  }
+  else if (ix == 0)
+    return (pts2qgeom(make_arc(v0, distancem, geoid, precision = precision)));
+  else
+    buffered = QgsGeometry.unaryUnion(results);
+  return buffered;
 }
 
 QgsGeometry ::buff_line(
     QgsPointXY p1, QgsPointXY p2, double distance,
     geod_geodesic Geod, double precision = 1.0, bool flatstart = False, bool flatend = False)
 {
-  az = geoid.inv(p1.x(), p1.y(), p2.x(), p2.y())[0] #, caps = 512 double lim = abs((az + 90.0) % 360)
+  double az;
+  QgsEllipsoidUtils::geoidInverseTransform(Geod, p1, p2, &az);
+  double lim = std::abs((az + 90.0) % 360);
 
-                                                           QVector<QgsPointXY>
-                                                               contour = make_arc(p1, distance, geoid, lim, lim + 180.0, (flatstart) ? 180.0 : precision);
-  contour << make_arc(p2, distance, geoid, lim - 180.0, lim, (flatend) ? 180.0 : precision);
+  QVector<QgsPointXY> contour = make_arc(p1, distance, Geod, lim, lim + 180.0, (flatstart) ? 180.0 : precision);
+  contour << make_arc(p2, distance, Geod, lim - 180.0, lim, (flatend) ? 180.0 : precision);
   contour << contour.first();
 
   return pts2qgeom(contour)
@@ -260,10 +238,13 @@ QVector<QgsPointXY>::make_arc(
   int step = 0;
   while (step < steps)
   {
-    angle = (start + (step * precision)) % 360 rlong, rlat, raz = geoid.fwd(srcPnt.x(), srcPnt.y(), angle, distance) points << QgsPointXY(rlong, rlat);
-    rlong, rlat, raz = geoid.fwd(srcPnt.x(), srcPnt.y(), end % 360.0, distance) points << QgsPointXY(rlong, rlat);
+    angle = (start + (step * precision)) % 360;
+    rlong, rlat, raz = QgsEllipsoidUtils::geoidDirectTransform(Geod, srcPnt, angle, distance);
+    points << QgsPointXY(rlong, rlat);
     step++;
   }
+  rlong, rlat, raz = QgsEllipsoidUtils::geoidDirectTransform(Geod, srcPnt, end % 360.0, distance);
+  points << QgsPointXY(rlong, rlat);
   return points;
 }
 
