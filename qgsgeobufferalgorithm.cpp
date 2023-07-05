@@ -1,9 +1,9 @@
 /***************************************************************************
                          qgsalgorithmbuffer.cpp
                          ---------------------
-    begin                : April 2017
-    copyright            : (C) 2017 by Nyall Dawson
-    email                : nyall dot dawson at gmail dot com
+    begin                : AJuly 2023
+    copyright            : (C) 2023 by Alexis RL
+    email                : roya0045 at github dot com
  ***************************************************************************/
 
 /***************************************************************************
@@ -18,43 +18,10 @@
 #include "qgsalgorithmbuffer.h"
 #include "qgsvectorlayer.h"
 
-from qgis.PyQt.QtCore import QCoreApplication
-    from qgis.core
-        import(
-            QgsProcessing,
-            QgsCoordinateTransform,
-            QgsCoordinateReferenceSystem,
-            QgsEllipsoidUtils,
-            QgsGeometry,
-            QgsGeometryCollection,
-            QgsWkbTypes,
-            QgsFeatureSink,
-            QgsProcessingParameterNumber,
-            QgsProcessingParameterEnum,
-            QgsProcessingParameterBoolean,
-            QgsProcessingException,
-            QgsProcessingParameterCrs,
-            QgsPropertyDefinition,
-            QgsProject,
-            QgsProcessingException,
-            QgsMultiPolygon,
-            QgsProcessingAlgorithm,
-            QgsPointXY,
-            QgsPolygon,
-            QgsLineString,
-            QgsPoint,
-            QgsProcessingParameters,
-            QgsProcessingParameterFeatureSource,
-            QgsProcessingParameterNumber,
-            QgsProcessingParameterFeatureSink, )
-            from qgis import processing
 
-#//https://sourceforge.net/p/saga-gis/code/ci/master/tree/saga-gis/src/tools/shapes/shapes_tools/shapes_buffer.cpp
+///@cond PRIVATE
 
-    polyt = Qgis.WkbType.PolygonGeomettry;
-mpolyt = Qgis.WktType.MultiPolygon;
-
-QgsGeometry ::pts2qgeom(QVector<QVector<QgsPointXY>> pointLists)
+QgsGeometry QgsBufferAlgorithm::pts2qgeom(QVector<QVector<QgsPointXY>> pointLists)
 {
   QgsMultiPolygon multipoly = QgsMultiPolygon()
       QVector<QVector<QgsPointXY>>::const_iterator pointList = pointLists.constBegin();
@@ -65,14 +32,14 @@ QgsGeometry ::pts2qgeom(QVector<QVector<QgsPointXY>> pointLists)
   return QgsGeometry.fromWkt(multipoly.asWkt());
 };
 
-QgsGeometry ::pts2qgeom(QVector<QgsPointXY> ptslist)
+QgsGeometry QgsBufferAlgorithm::pts2qgeom(QVector<QgsPointXY> ptslist)
 {
   QgsMultiPolygon multipoly = QgsMultiPolygon();
   multipoly.addGeometry(QgsPolygon(QgsLineString(ptslist)));
   return QgsGeometry.fromWkt(multipoly.asWkt());
 };
 
-QgsGeometry ::buffer(
+QgsGeometry QgsBufferAlgorithm::buffer(
     QgsGeometry geometry,
     double distancem,
     QgsCoordinateReferenceSystem srcCrs,
@@ -125,12 +92,12 @@ QgsGeometry ::buffer(
   retgeom = QgsGeometry.unaryUnion(geoms);
 
   if not(retgeom.isGeosValid())
-    retgeom = retgeom.makeValid()
+    retgeom = retgeom.makeValid();
 
-                  return retgeom;
+  return retgeom;
 }
 
-QVector<QgsGeometry>::_buffer(
+QVector<QgsGeometry> QgsBufferAlgorithm::_buffer(
     QVector<QgsGeometry> geometries,
     double distancem,
     geod_geodesic Geod,
@@ -148,12 +115,12 @@ QVector<QgsGeometry>::_buffer(
   return results;
 };
 
-QVector<QgsGeometry>::_buffer(
+QVector<QgsGeometry> QgsBufferAlgorithm::_buffer(
     QgsGeometry geometry,
     double distancem,
     geod_geodesic Geod,
-    bool flat
-        QgsProcessingFeedback *feedback,
+    bool flat,
+    QgsProcessingFeedback *feedback,
     double precision)
 {
 
@@ -207,7 +174,7 @@ QVector<QgsGeometry>::_buffer(
   return buffered;
 }
 
-QgsGeometry ::buff_line(
+QgsGeometry QgsBufferAlgorithm::buff_line(
     QgsPointXY p1, QgsPointXY p2, double distance,
     geod_geodesic Geod, double precision = 1.0, bool flatstart = False, bool flatend = False)
 {
@@ -223,7 +190,7 @@ QgsGeometry ::buff_line(
 }
 
 #//https://geographiclib.sourceforge.io/Python/doc/code.html#geographiclib.geodesic.Geodesic.Direct
-QVector<QgsPointXY>::make_arc(
+QVector<QgsPointXY> QgsBufferAlgorithm::make_arc(
     srcPnt,
     distance,
     geod_geodesic Geod,
@@ -247,153 +214,6 @@ QVector<QgsPointXY>::make_arc(
   points << QgsPointXY(rlong, rlat);
   return points;
 }
-
-class GeoidBufferAlgorithm(QgsProcessingAlgorithm):
-    OUTPUT = "OUTPUT"
-    DISTM = "DISTM"
-    GEOID = "GEOID"
-    INPUT = "INPUT"
-    DISSB = "DISSB"
-    ENDSTYLE = "ENDSTYLE"
-    PRECISION = "PRECISION"
-    Capstyle = ["Round", "Flat"]
-
-    def initAlgorithm(self, config=None):
-        self.addParameter(
-            QgsProcessingParameterFeatureSource(
-                self.INPUT,
-                self.tr("Input layer"),
-                [QgsProcessing.TypeVectorAnyGeometry],
-            )
-        )
-
-        dp = QgsProcessingParameterNumber(
-            self.DISTM,
-            self.tr("Distance in Meter"),
-            QgsProcessingParameterNumber.Double,
-            defaultValue=1000.0,
-        )
-        dp.setIsDynamic(True)
-        dp.setDynamicPropertyDefinition(
-            QgsPropertyDefinition(
-                "Distance", self.tr("Distance in meters"), QgsPropertyDefinition.Integer
-            )
-        )
-        dp.setDynamicLayerParameterName("INPUT")
-        self.addParameter(dp)
-
-        self.addParameter(
-            QgsProcessingParameterEnum(
-                self.ENDSTYLE,
-                self.tr("End style"),
-                self.Capstyle,
-                allowMultiple=False,
-                defaultValue=0,
-            )
-        )
-
-        self.addParameter(
-            QgsProcessingParameterBoolean(
-                self.DISSB, self.tr("Dissolve features"), False
-            )
-        )
-
-        self.addParameter(
-            QgsProcessingParameterCrs(
-                self.GEOID,
-                self.tr("Geoid to use"),
-                defaultValue=None,
-                optional=True,
-            )
-        )
-
-        self.addParameter(
-            QgsProcessingParameterFeatureSink(self.OUTPUT, self.tr("Output layer"))
-        )
-
-        self.addParameter(
-            QgsProcessingParameterNumber(
-                self.PRECISION,
-                self.tr("Precision (in degree)"),
-                QgsProcessingParameterNumber.Double,
-                defaultValue=1.0,
-            )
-        )
-
-    def prepareAlgorithm(self, parameters, context, feedback):
-        self.distanceV = self.parameterAsDouble(parameters, "DISTM", context)
-
-        self.dynamicDist = QgsProcessingParameters.isDynamic(parameters, "DISTM")
-        if self.dynamicDist:
-            self.distanceExp = parameters["DISTM"]
-        else:
-            self.distanceExp = ""
-        return True
-
-    def processAlgorithm(self, parameters, context, QgsProcessingFeedback *feedback):
-        source = self.parameterAsSource(parameters, self.INPUT, context)
-        (sink, dest_id) = self.parameterAsSink(
-            parameters,
-            self.OUTPUT,
-            context,
-            source.fields(),
-            mpolyt,
-            source.sourceCrs(),
-        )
-
-        distancem = self.parameterAsDouble(parameters, self.DISTM, context)
-        interimCrs = self.parameterAsCrs(parameters, self.GEOID, context)
-        capstyle = self.parameterAsEnum(parameters, self.ENDSTYLE, context)
-        dissolveB = self.parameterAsBoolean(parameters, self.DISSB, context)
-        precision = self.parameterAsDouble(parameters, self.PRECISION, context)
-
-        fc = source.featureCount() if source.featureCount() else 0
-        total = 100.0 / fc
-        features = source.getFeatures()
-
-        currentCrs = source.sourceCrs()
-
-        if interimCrs.isValid():
-            Ellipsoid = interimCrs
-        else:
-            Ellipsoid = currentCrs
-        expcont = self.createExpressionContext(parameters, context, source)
-
-        for current, feature in enumerate(features):
-            if feedback.isCanceled():
-                break
-            if not (feature.hasGeometry()):
-                continue
-            oldgeometry = feature.geometry()
-            distancem = self.distanceV
-            if self.dynamicDist:
-                expcont.setFeature(feature)
-                distancem, expeval = self.distanceExp.valueAsDouble(expcont, distancem)
-                if not (expeval):
-                    feedback.pushInfo("error evaluating expression")
-#feedback.pushInfo(str(distancem))
-
-            buffered = buffer(
-                oldgeometry,
-                distancem,
-                currentCrs,
-                Ellipsoid,
-                feedback,
-                dissolveB,
-                capstyle == 1,
-                precision,
-            )
-
-            feature.setGeometry(buffered)
-
-            sink.addFeature(feature, QgsFeatureSink.FastInsert)
-
-            feedback.setProgress(int(current * total))
-
-        return {self.OUTPUT: dest_id}
-
-
-///@cond PRIVATE
 
 QString QgsBufferAlgorithm::name() const
 {
@@ -424,18 +244,13 @@ void QgsBufferAlgorithm::initAlgorithm(const QVariantMap &)
 {
   addParameter(new QgsProcessingParameterFeatureSource(QStringLiteral("INPUT"), QObject::tr("Input layer")));
 
-  auto bufferParam = std::make_unique<QgsProcessingParameterDistance>(QStringLiteral("DISTANCE"), QObject::tr("Distance"), 10, QStringLiteral("INPUT"));
+  auto bufferParam = std::make_unique<QgsProcessingParameterNumber>(QStringLiteral("DISTANCE"), QObject::tr("Distance in meter"),QgsProcessingParameterNumber::Double, 1000);
   bufferParam->setIsDynamic(true);
   bufferParam->setDynamicPropertyDefinition(QgsPropertyDefinition(QStringLiteral("Distance"), QObject::tr("Buffer distance"), QgsPropertyDefinition::Double));
   bufferParam->setDynamicLayerParameterName(QStringLiteral("INPUT"));
   addParameter(bufferParam.release());
-  auto segmentParam = std::make_unique<QgsProcessingParameterNumber>(QStringLiteral("SEGMENTS"), QObject::tr("Segments"), QgsProcessingParameterNumber::Integer, 5, false, 1);
-  segmentParam->setHelp(QObject::tr("The segments parameter controls the number of line segments to use to approximate a quarter circle when creating rounded offsets."));
-  addParameter(segmentParam.release());
   addParameter(new QgsProcessingParameterEnum(QStringLiteral("END_CAP_STYLE"), QObject::tr("End cap style"), QStringList() << QObject::tr("Round") << QObject::tr("Flat") << QObject::tr("Square"), false, 0));
-  addParameter(new QgsProcessingParameterEnum(QStringLiteral("JOIN_STYLE"), QObject::tr("Join style"), QStringList() << QObject::tr("Round") << QObject::tr("Miter") << QObject::tr("Bevel"), false, 0));
-  addParameter(new QgsProcessingParameterNumber(QStringLiteral("MITER_LIMIT"), QObject::tr("Miter limit"), QgsProcessingParameterNumber::Double, 2, false, 1));
-
+  addParameter(new QgsProcessingParameterNumber(QStringLiteral("PRECISION"), QObject::tr( "Precision (in degree)" ), QgsProcessingParameterNumber::Double, 1));
   addParameter(new QgsProcessingParameterBoolean(QStringLiteral("DISSOLVE"), QObject::tr("Dissolve result"), false));
 
   auto keepDisjointParam = std::make_unique<QgsProcessingParameterBoolean>(QStringLiteral("SEPARATE_DISJOINT"), QObject::tr("Keep disjoint results separate"), false);
@@ -474,10 +289,8 @@ QVariantMap QgsBufferAlgorithm::processAlgorithm(const QVariantMap &parameters, 
   // fixed parameters
   const bool dissolve = parameterAsBoolean(parameters, QStringLiteral("DISSOLVE"), context);
   const bool keepDisjointSeparate = parameterAsBoolean(parameters, QStringLiteral("SEPARATE_DISJOINT"), context);
-  const int segments = parameterAsInt(parameters, QStringLiteral("SEGMENTS"), context);
   const Qgis::EndCapStyle endCapStyle = static_cast<Qgis::EndCapStyle>(1 + parameterAsInt(parameters, QStringLiteral("END_CAP_STYLE"), context));
-  const Qgis::JoinStyle joinStyle = static_cast<Qgis::JoinStyle>(1 + parameterAsInt(parameters, QStringLiteral("JOIN_STYLE"), context));
-  const double miterLimit = parameterAsDouble(parameters, QStringLiteral("MITER_LIMIT"), context);
+  const double precision = parameterAsDouble(parameters, QStringLiteral("PRECISION"), context);
   const double bufferDistance = parameterAsDouble(parameters, QStringLiteral("DISTANCE"), context);
   const bool dynamicBuffer = QgsProcessingParameters::isDynamic(parameters, QStringLiteral("DISTANCE"));
   QgsExpressionContext expressionContext = createExpressionContext(parameters, context, source.get());
@@ -495,7 +308,7 @@ QVariantMap QgsBufferAlgorithm::processAlgorithm(const QVariantMap &parameters, 
 
   const double step = count > 0 ? 100.0 / count : 1;
   int current = 0;
-
+  QgsCoordinateReferenceSystem currentCrs = source.sourceCrs();
   QVector<QgsGeometry> bufferedGeometriesForDissolve;
   QgsAttributes dissolveAttrs;
 
@@ -508,8 +321,8 @@ QVariantMap QgsBufferAlgorithm::processAlgorithm(const QVariantMap &parameters, 
     if (dissolveAttrs.isEmpty())
       dissolveAttrs = f.attributes();
 
-    QgsFeature out = f;
-    if (out.hasGeometry())
+    QgsFeature outputGeometry;
+    if (f.hasGeometry())
     {
       double distance = bufferDistance;
       if (dynamicBuffer)
@@ -518,7 +331,15 @@ QVariantMap QgsBufferAlgorithm::processAlgorithm(const QVariantMap &parameters, 
         distance = bufferProperty.valueAsDouble(expressionContext, bufferDistance);
       }
 
-      QgsGeometry outputGeometry = f.geometry().buffer(distance, segments, endCapStyle, joinStyle, miterLimit);
+      outputGeometry = buffer(
+                f,
+                distancem,
+                currentCrs,
+                feedback,
+                dissolve,
+                capstyle == 1,
+                precision,
+            )
       if (outputGeometry.isNull())
       {
         QgsMessageLog::logMessage(QObject::tr("Error calculating buffer for feature %1").arg(f.id()), QObject::tr("Processing"), Qgis::MessageLevel::Warning);

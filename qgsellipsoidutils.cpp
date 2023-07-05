@@ -356,7 +356,7 @@ QMap< QString, QMap< QString, double> > baseEllipsoids{
 {"WGS72",QMap<QString,double>{{"a",6378135.0},{"rf",298.26}}},
 {"WGS84",QMap<QString,double>{{"a",6378137.0},{"rf",298.257223563}}},
 {"sphere",QMap<QString,double>{{"a",6370997.0},{"b",6370997.0},{"r",6370997}}},
-}
+};
 
 void QgsEllipsoidUtils::invalidateCache( bool disableCache )
 {
@@ -417,103 +417,24 @@ geod_geodesic QgsEllipsoidUtils::getGeoid( QgsCoordinateReferenceSystem crs )
   double s12;
   geod_init(&geodstruct, a,f);
 
-  
   return geodstruct;
 }
 
 QgsPointXY QgsEllipsoidUtils::geoidDirectTransform( geod_geodesic geoid, QgsPointXY start, double azimuth, double distance )
 {
- 
-    void GEOD_DLL geod_direct(const struct geod_geodesic* g,
-                            double lat1, double lon1, double azi1, double s12,
-                            double* plat2, double* plon2, double* pazi2);
-
-
-  /**
-   * @param[in] g a pointer to the geod_geodesic object specifying the
-   *   ellipsoid.
-   * @param[in] lat1 latitude of point 1 (degrees).
-   * @param[in] lon1 longitude of point 1 (degrees).
-   * @param[in] azi1 azimuth at point 1 (degrees).
-   * @param[in] flags bitor'ed combination of ::geod_flags; \e flags &
-   *   ::GEOD_ARCMODE determines the meaning of \e s12_a12 and \e flags &
-   *   ::GEOD_LONG_UNROLL "unrolls" \e lon2.
-   * @param[in] s12_a12 if \e flags & ::GEOD_ARCMODE is 0, this is the distance
-   *   from point 1 to point 2 (meters); otherwise it is the arc length
-   *   from point 1 to point 2 (degrees); it can be negative.
-   * @param[out] plat2 pointer to the latitude of point 2 (degrees).
-   * @param[out] plon2 pointer to the longitude of point 2 (degrees).
-   * @param[out] pazi2 pointer to the (forward) azimuth at point 2 (degrees).
-   * @param[out] ps12 pointer to the distance from point 1 to point 2
-   *   (meters).
-   * @param[out] pm12 pointer to the reduced length of geodesic (meters).
-   * @param[out] pM12 pointer to the geodesic scale of point 2 relative to
-   *   point 1 (dimensionless).
-   * @param[out] pM21 pointer to the geodesic scale of point 1 relative to
-   *   point 2 (dimensionless).
-   * @param[out] pS12 pointer to the area under the geodesic
-   *   (meters<sup>2</sup>).
-   * @return \e a12 arc length from point 1 to point 2 (degrees).
-   */
    double pointLat;
    double pointLong;
    double dist;
-
    
-   double GEOD_DLL geod_direct(&geoid,start.Y(), start.X(), azimuth, distance,
-                             &pointLat, &pointLong, &dist);
-   endpoint = QgsPointXY(pointLong,pointLat);
-   return(endpoint)
+   GEOD_DLL geod_direct( &geoid,start.y(), start.x(), azimuth, distance, &pointLat, &pointLong, &dist);
+   QgsPointXY endpoint = QgsPointXY( pointLong, pointLat );
+   return(endpoint);
 }
 double QgsEllipsoidUtils::geoidInverseTransform( geod_geodesic geoid, QgsPointXY start, QgsPointXY end , double * azimuth)
-{
-
-  /**
-   * Solve the inverse geodesic problem.
-   *
-   * @param[in] g a pointer to the geod_geodesic object specifying the
-   *   ellipsoid.
-   * @param[in] lat1 latitude of point 1 (degrees).
-   * @param[in] lon1 longitude of point 1 (degrees).
-   * @param[in] lat2 latitude of point 2 (degrees).
-   * @param[in] lon2 longitude of point 2 (degrees).
-   * @param[out] ps12 pointer to the distance from point 1 to point 2
-   *   (meters).
-   * @param[out] pazi1 pointer to the azimuth at point 1 (degrees).
-   * @param[out] pazi2 pointer to the (forward) azimuth at point 2 (degrees).
-   *
-   * \e g must have been initialized with a call to geod_init().  \e lat1 and
-   * \e lat2 should be in the range [&minus;90&deg;, 90&deg;].  The values of
-   * \e azi1 and \e azi2 returned are in the range [&minus;180&deg;, 180&deg;].
-   * Any of the "return" arguments, \e ps12, etc., may be replaced by 0, if you
-   * do not need some quantities computed.
-   *
-   * If either point is at a pole, the azimuth is defined by keeping the
-   * longitude fixed, writing \e lat = &plusmn;(90&deg; &minus; &epsilon;), and
-   * taking the limit &epsilon; &rarr; 0+.
-   *
-   * The solution to the inverse problem is found using Newton's method.  If
-   * this fails to converge (this is very unlikely in geodetic applications
-   * but does occur for very eccentric ellipsoids), then the bisection method
-   * is used to refine the solution.
-   *
-   * Example, determine the distance between JFK and Singapore Changi Airport:
-   @code{.c}
-   struct geod_geodesic g;
-   double s12;
-   geod_init(&g, 6378137, 1/298.257223563);
-   geod_inverse(&g, 40.64, -73.78, 1.36, 103.99, &s12, 0, 0);
-   printf("%.3f\n", s12);
-   @endcode
-   **********************************************************************/
-  void GEOD_DLL geod_inverse(const struct geod_geodesic* g,
-                             double lat1, double lon1,
-                             double lat2, double lon2,
-                             double* ps12, double* pazi1, double* pazi2);
-                             
+{                            
   double distance;
   double backAzimuth;
   
-  geod_inverse(&geiod,start.Y(), start.X(),end.Y().end.X(), &distance, azimuth, &backAzimuth);
-  return( distance )
+  geod_inverse( &geiod, start.y(), start.x(),end.y().end.x(), &distance, azimuth, &backAzimuth );
+  return( distance );
 }
