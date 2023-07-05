@@ -49,52 +49,43 @@ QgsGeometry QgsBufferAlgorithm::buffer(
     Bool flatcap = False,
     double precision = 1.0, )
 {
-  if distancem
-    == 0.0 : return geometry;
+  if ( distancem == 0.0 ) 
+    return geometry;
 
   QgsCoordinateReferenceSystem geoidCrs = destCrs.toGeographicCrs();
-  if not(geoid.isValid):
-        raise QgsProcessingException("invalid crs")
+  if not(geoidCrs.isValid):
+        throw QgsProcessingException( "invalid crs")
 
   QgsCoordinateTransform geoidTransformer = QgsCoordinateTransform(srcCrs, geoidCrs, QgsProject.instance());
   QgsCoordinateTransform reverseTransformer = QgsCoordinateTransform(geoidCrs, srcCrs, QgsProject.instance());
 
   result = geometry.transform(geoidTransformer);
   if !(result || geometry.isGeosValid()) : 
-   raise QgsProcessingException("Failed to transform");
+   throw QgsProcessingException("Failed to transform");
 
   geod_geodesic geoid = QgsEllipsoidUtils::getGeoid(geoidCrs);
 
   QVector<QgsGeometry> results = _buffer(geometry.asGeometryCollection(), distancem, geoid, flatcap, feedback, precision);
-  if (results.size() == 1)
+  QgsGeometry bufferedGeometry;
+
+  if ( results.size() == 1)
   {
-    QgsGeometry resultsGeometry = results.at(0);
+    bufferedGeometry = results.at(0);
     bufferedGeometry.transform(reverseTransformer);
-    if not(bufferedGeometry.isGeosValid()):
-            return( bufferedGeometry.makeValid());
-    return bufferedGeometry;
   }
-  if (dissolve)
-    buffered = QgsGeometry.unaryUnion(results);
-  QVector<QgsGeometry> reprojected;
-
-  QVector<QgsGeometry>::const_iterator buff = results.constBegin();
-  for (; buff != results.constEnd(); ++buff)
+  else
   {
-    QgsGeometry earthBuffer = *buff;
-    earthBuffer.transform(reverseTransformer);
-    if (buff.isMultipart())
-      earthBuffer.convertToSingleType();
+    for (int i = 0; i < results.size(); ++i)
+    {
+      results[i].value.transform(reverseTransformer);
+    }
 
-    reprojected << earthBuffer;
+    bufferedGeometry = QgsGeometry.collectGeometry(results);
   }
+  if not( bufferedGeometry.isGeosValid() )
+    bufferedGeometry = bufferedGeometry.makeValid();
 
-  retgeom = QgsGeometry.unaryUnion(geoms);
-
-  if not(retgeom.isGeosValid())
-    retgeom = retgeom.makeValid();
-
-  return retgeom;
+  return bufferedGeometry;
 }
 
 QVector<QgsGeometry> QgsBufferAlgorithm::_buffer(
@@ -249,7 +240,7 @@ void QgsBufferAlgorithm::initAlgorithm(const QVariantMap &)
   bufferParam->setDynamicPropertyDefinition(QgsPropertyDefinition(QStringLiteral("Distance"), QObject::tr("Buffer distance"), QgsPropertyDefinition::Double));
   bufferParam->setDynamicLayerParameterName(QStringLiteral("INPUT"));
   addParameter(bufferParam.release());
-  addParameter(new QgsProcessingParameterEnum(QStringLiteral("END_CAP_STYLE"), QObject::tr("End cap style"), QStringList() << QObject::tr("Round") << QObject::tr("Flat") << QObject::tr("Square"), false, 0));
+  addParameter(new QgsProcessingParameterEnum(QStringLiteral("END_CAP_STYLE"), QObject::tr("End cap style"), QStringList() << QObject::tr("Round") << QObject::tr("Flat") , false, 0));
   addParameter(new QgsProcessingParameterNumber(QStringLiteral("PRECISION"), QObject::tr( "Precision (in degree)" ), QgsProcessingParameterNumber::Double, 1));
   addParameter(new QgsProcessingParameterBoolean(QStringLiteral("DISSOLVE"), QObject::tr("Dissolve result"), false));
 
@@ -289,7 +280,7 @@ QVariantMap QgsBufferAlgorithm::processAlgorithm(const QVariantMap &parameters, 
   // fixed parameters
   const bool dissolve = parameterAsBoolean(parameters, QStringLiteral("DISSOLVE"), context);
   const bool keepDisjointSeparate = parameterAsBoolean(parameters, QStringLiteral("SEPARATE_DISJOINT"), context);
-  const Qgis::EndCapStyle endCapStyle = static_cast<Qgis::EndCapStyle>(1 + parameterAsInt(parameters, QStringLiteral("END_CAP_STYLE"), context));
+  const bool flatCap = Qgis::EndCapStyle::Flat == static_cast<Qgis::EndCapStyle>(1 + parameterAsInt(parameters, QStringLiteral("END_CAP_STYLE"), context));
   const double precision = parameterAsDouble(parameters, QStringLiteral("PRECISION"), context);
   const double bufferDistance = parameterAsDouble(parameters, QStringLiteral("DISTANCE"), context);
   const bool dynamicBuffer = QgsProcessingParameters::isDynamic(parameters, QStringLiteral("DISTANCE"));
