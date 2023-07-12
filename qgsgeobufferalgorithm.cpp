@@ -1,5 +1,5 @@
 /***************************************************************************
-                         qgsalgorithmbuffer.cpp
+                         qgsalgorithmgeoidbuffer.cpp
                          ---------------------
     begin                : AJuly 2023
     copyright            : (C) 2023 by Alexis RL
@@ -15,13 +15,13 @@
  *                                                                         *
  ***************************************************************************/
 
-#include "qgsalgorithmbuffer.h"
+#include "qgsalgorithmgooiedbuffer.h"
 #include "qgsvectorlayer.h"
 
 
 ///@cond PRIVATE
 
-QgsGeometry QgsBufferAlgorithm::pts2qgeom(QVector<QVector<QgsPointXY>> pointLists)
+QgsGeometry QgsGeoidBufferAlgorithm::pts2qgeom(QVector<QVector<QgsPointXY>> pointLists)
 {
   QgsMultiPolygon multipoly = QgsMultiPolygon()
       QVector<QVector<QgsPointXY>>::const_iterator pointList = pointLists.constBegin();
@@ -32,14 +32,14 @@ QgsGeometry QgsBufferAlgorithm::pts2qgeom(QVector<QVector<QgsPointXY>> pointList
   return QgsGeometry.fromWkt(multipoly.asWkt());
 };
 
-QgsGeometry QgsBufferAlgorithm::pts2qgeom(QVector<QgsPointXY> ptslist)
+QgsGeometry QgsGeoidBufferAlgorithm::pts2qgeom(QVector<QgsPointXY> ptslist)
 {
   QgsMultiPolygon multipoly = QgsMultiPolygon();
   multipoly.addGeometry(QgsPolygon(QgsLineString(ptslist)));
   return QgsGeometry.fromWkt(multipoly.asWkt());
 };
 
-QgsGeometry QgsBufferAlgorithm::buffer(
+QgsGeometry QgsGeoidBufferAlgorithm::buffer(
     QgsGeometry geometry,
     double distancem,
     QgsCoordinateReferenceSystem srcCrs,
@@ -88,7 +88,7 @@ QgsGeometry QgsBufferAlgorithm::buffer(
   return bufferedGeometry;
 }
 
-QVector<QgsGeometry> QgsBufferAlgorithm::_buffer(
+QVector<QgsGeometry> QgsGeoidBufferAlgorithm::_buffer(
     QVector<QgsGeometry> geometries,
     double distancem,
     geod_geodesic Geod,
@@ -106,7 +106,7 @@ QVector<QgsGeometry> QgsBufferAlgorithm::_buffer(
   return results;
 };
 
-QVector<QgsGeometry> QgsBufferAlgorithm::_buffer(
+QVector<QgsGeometry> QgsGeoidBufferAlgorithm::_buffer(
     QgsGeometry geometry,
     double distancem,
     geod_geodesic Geod,
@@ -165,7 +165,7 @@ QVector<QgsGeometry> QgsBufferAlgorithm::_buffer(
   return buffered;
 }
 
-QgsGeometry QgsBufferAlgorithm::buff_line(
+QgsGeometry QgsGeoidBufferAlgorithm::buff_line(
     QgsPointXY p1, QgsPointXY p2, double distance,
     geod_geodesic Geod, double precision = 1.0, bool flatstart = False, bool flatend = False)
 {
@@ -181,7 +181,7 @@ QgsGeometry QgsBufferAlgorithm::buff_line(
 }
 
 #//https://geographiclib.sourceforge.io/Python/doc/code.html#geographiclib.geodesic.Geodesic.Direct
-QVector<QgsPointXY> QgsBufferAlgorithm::make_arc(
+QVector<QgsPointXY> QgsGeoidBufferAlgorithm::make_arc(
     srcPnt,
     distance,
     geod_geodesic Geod,
@@ -206,32 +206,32 @@ QVector<QgsPointXY> QgsBufferAlgorithm::make_arc(
   return points;
 }
 
-QString QgsBufferAlgorithm::name() const
+QString QgsGeoidBufferAlgorithm::name() const
 {
   return QStringLiteral("geoidbuffer");
 }
 
-QString QgsBufferAlgorithm::displayName() const
+QString QgsGeoidBufferAlgorithm::displayName() const
 {
   return QObject::tr("Geoid Buffer");
 }
 
-QStringList QgsBufferAlgorithm::tags() const
+QStringList QgsGeoidBufferAlgorithm::tags() const
 {
   return QObject::tr("buffer,grow,fixed,variable,distance").split(',');
 }
 
-QString QgsBufferAlgorithm::group() const
+QString QgsGeoidBufferAlgorithm::group() const
 {
   return QObject::tr("Vector geometry");
 }
 
-QString QgsBufferAlgorithm::groupId() const
+QString QgsGeoidBufferAlgorithm::groupId() const
 {
   return QStringLiteral("vectorgeometry");
 }
 
-void QgsBufferAlgorithm::initAlgorithm(const QVariantMap &)
+void QgsGeoidBufferAlgorithm::initAlgorithm(const QVariantMap &)
 {
   addParameter(new QgsProcessingParameterFeatureSource(QStringLiteral("INPUT"), QObject::tr("Input layer")));
 
@@ -252,7 +252,7 @@ void QgsBufferAlgorithm::initAlgorithm(const QVariantMap &)
   addParameter(new QgsProcessingParameterFeatureSink(QStringLiteral("OUTPUT"), QObject::tr("Buffered"), QgsProcessing::TypeVectorPolygon, QVariant(), false, true, true));
 }
 
-QString QgsBufferAlgorithm::shortHelpString() const
+QString QgsGeoidBufferAlgorithm::shortHelpString() const
 {
   return QObject::tr("This algorithm computes a buffer area for all the features in an input layer, using a fixed or dynamic distance.\n\n"
                      "The segments parameter controls the number of line segments to use to approximate a quarter circle when creating rounded offsets.\n\n"
@@ -261,12 +261,12 @@ QString QgsBufferAlgorithm::shortHelpString() const
                      "The miter limit parameter is only applicable for miter join styles, and controls the maximum distance from the offset curve to use when creating a mitered join.");
 }
 
-QgsBufferAlgorithm *QgsBufferAlgorithm::createInstance() const
+QgsGeoidBufferAlgorithm *QgsGeoidBufferAlgorithm::createInstance() const
 {
-  return new QgsBufferAlgorithm();
+  return new QgsGeoidBufferAlgorithm();
 }
 
-QVariantMap QgsBufferAlgorithm::processAlgorithm(const QVariantMap &parameters, QgsProcessingContext &context, QgsProcessingFeedback *feedback)
+QVariantMap QgsGeoidBufferAlgorithm::processAlgorithm(const QVariantMap &parameters, QgsProcessingContext &context, QgsProcessingFeedback *feedback)
 {
   std::unique_ptr<QgsProcessingFeatureSource> source(parameterAsSource(parameters, QStringLiteral("INPUT"), context));
   if (!source)
@@ -406,14 +406,14 @@ QVariantMap QgsBufferAlgorithm::processAlgorithm(const QVariantMap &parameters, 
   return outputs;
 }
 
-QgsProcessingAlgorithm::Flags QgsBufferAlgorithm::flags() const
+QgsProcessingAlgorithm::Flags QgsGeoidBufferAlgorithm::flags() const
 {
   Flags f = QgsProcessingAlgorithm::flags();
   f |= QgsProcessingAlgorithm::FlagSupportsInPlaceEdits;
   return f;
 }
 
-QgsProcessingAlgorithm::VectorProperties QgsBufferAlgorithm::sinkProperties(const QString &sink, const QVariantMap &parameters, QgsProcessingContext &context, const QMap<QString, QgsProcessingAlgorithm::VectorProperties> &sourceProperties) const
+QgsProcessingAlgorithm::VectorProperties QgsGeoidBufferAlgorithm::sinkProperties(const QString &sink, const QVariantMap &parameters, QgsProcessingContext &context, const QMap<QString, QgsProcessingAlgorithm::VectorProperties> &sourceProperties) const
 {
   const bool keepDisjointSeparate = parameterAsBoolean(parameters, QStringLiteral("SEPARATE_DISJOINT"), context);
 
@@ -445,7 +445,7 @@ QgsProcessingAlgorithm::VectorProperties QgsBufferAlgorithm::sinkProperties(cons
   return result;
 }
 
-bool QgsBufferAlgorithm::supportInPlaceEdit(const QgsMapLayer *layer) const
+bool QgsGeoidBufferAlgorithm::supportInPlaceEdit(const QgsMapLayer *layer) const
 {
   const QgsVectorLayer *vlayer = qobject_cast<const QgsVectorLayer *>(layer);
   if (!vlayer)
